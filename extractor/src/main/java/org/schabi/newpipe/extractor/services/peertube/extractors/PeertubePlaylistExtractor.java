@@ -3,6 +3,7 @@ package org.schabi.newpipe.extractor.services.peertube.extractors;
 import com.grack.nanojson.JsonObject;
 import com.grack.nanojson.JsonParser;
 import com.grack.nanojson.JsonParserException;
+import org.schabi.newpipe.extractor.Image;
 import org.schabi.newpipe.extractor.Page;
 import org.schabi.newpipe.extractor.StreamingService;
 import org.schabi.newpipe.extractor.downloader.Downloader;
@@ -12,17 +13,21 @@ import org.schabi.newpipe.extractor.exceptions.ParsingException;
 import org.schabi.newpipe.extractor.linkhandler.ListLinkHandler;
 import org.schabi.newpipe.extractor.playlist.PlaylistExtractor;
 import org.schabi.newpipe.extractor.services.peertube.PeertubeParsingHelper;
+import org.schabi.newpipe.extractor.stream.Description;
 import org.schabi.newpipe.extractor.stream.StreamInfoItem;
 import org.schabi.newpipe.extractor.stream.StreamInfoItemsCollector;
 import org.schabi.newpipe.extractor.utils.Utils;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
+import java.util.List;
 
 import static org.schabi.newpipe.extractor.services.peertube.PeertubeParsingHelper.COUNT_KEY;
 import static org.schabi.newpipe.extractor.services.peertube.PeertubeParsingHelper.ITEMS_PER_PAGE;
 import static org.schabi.newpipe.extractor.services.peertube.PeertubeParsingHelper.START_KEY;
-import static org.schabi.newpipe.extractor.services.peertube.PeertubeParsingHelper.collectStreamsFrom;
+import static org.schabi.newpipe.extractor.services.peertube.PeertubeParsingHelper.collectItemsFrom;
+import static org.schabi.newpipe.extractor.services.peertube.PeertubeParsingHelper.getAvatarsFromOwnerAccountOrVideoChannelObject;
+import static org.schabi.newpipe.extractor.services.peertube.PeertubeParsingHelper.getThumbnailsFromPlaylistOrVideoItem;
 import static org.schabi.newpipe.extractor.utils.Utils.isNullOrEmpty;
 
 public class PeertubePlaylistExtractor extends PlaylistExtractor {
@@ -35,8 +40,8 @@ public class PeertubePlaylistExtractor extends PlaylistExtractor {
 
     @Nonnull
     @Override
-    public String getThumbnailUrl() throws ParsingException {
-        return getBaseUrl() + playlistInfo.getString("thumbnailPath");
+    public List<Image> getThumbnails() throws ParsingException {
+        return getThumbnailsFromPlaylistOrVideoItem(getBaseUrl(), playlistInfo);
     }
 
     @Override
@@ -49,10 +54,11 @@ public class PeertubePlaylistExtractor extends PlaylistExtractor {
         return playlistInfo.getObject("ownerAccount").getString("displayName");
     }
 
+    @Nonnull
     @Override
-    public String getUploaderAvatarUrl() throws ParsingException {
-        return getBaseUrl()
-                + playlistInfo.getObject("ownerAccount").getObject("avatar").getString("path");
+    public List<Image> getUploaderAvatars() throws ParsingException {
+        return getAvatarsFromOwnerAccountOrVideoChannelObject(getBaseUrl(),
+                playlistInfo.getObject("ownerAccount"));
     }
 
     @Override
@@ -63,6 +69,16 @@ public class PeertubePlaylistExtractor extends PlaylistExtractor {
     @Override
     public long getStreamCount() {
         return playlistInfo.getLong("videosLength");
+    }
+
+    @Nonnull
+    @Override
+    public Description getDescription() throws ParsingException {
+        final String description = playlistInfo.getString("description");
+        if (isNullOrEmpty(description)) {
+            return Description.EMPTY_DESCRIPTION;
+        }
+        return new Description(description, Description.PLAIN_TEXT);
     }
 
     @Nonnull
@@ -79,9 +95,9 @@ public class PeertubePlaylistExtractor extends PlaylistExtractor {
 
     @Nonnull
     @Override
-    public String getSubChannelAvatarUrl() throws ParsingException {
-        return getBaseUrl()
-                + playlistInfo.getObject("videoChannel").getObject("avatar").getString("path");
+    public List<Image> getSubChannelAvatars() throws ParsingException {
+        return getAvatarsFromOwnerAccountOrVideoChannelObject(getBaseUrl(),
+                playlistInfo.getObject("videoChannel"));
     }
 
     @Nonnull
@@ -114,7 +130,7 @@ public class PeertubePlaylistExtractor extends PlaylistExtractor {
             final long total = json.getLong("total");
 
             final StreamInfoItemsCollector collector = new StreamInfoItemsCollector(getServiceId());
-            collectStreamsFrom(collector, json, getBaseUrl());
+            collectItemsFrom(collector, json, getBaseUrl());
 
             return new InfoItemsPage<>(collector,
                     PeertubeParsingHelper.getNextPage(page.getUrl(), total));

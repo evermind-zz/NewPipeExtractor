@@ -1,24 +1,43 @@
 package org.schabi.newpipe.extractor.services.bandcamp.linkHandler;
 
+import org.schabi.newpipe.extractor.search.filter.FilterItem;
+
 import org.schabi.newpipe.extractor.exceptions.ParsingException;
 import org.schabi.newpipe.extractor.linkhandler.ListLinkHandlerFactory;
 import org.schabi.newpipe.extractor.services.bandcamp.extractors.BandcampExtractorHelper;
 
 import java.util.List;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
 /**
  * Like in {@link BandcampStreamLinkHandlerFactory}, tracks have no meaningful IDs except for
  * their URLs
  */
-public class BandcampCommentsLinkHandlerFactory extends ListLinkHandlerFactory {
+public final class BandcampCommentsLinkHandlerFactory extends ListLinkHandlerFactory {
+
+    private static final BandcampCommentsLinkHandlerFactory INSTANCE
+            = new BandcampCommentsLinkHandlerFactory();
+
+    private BandcampCommentsLinkHandlerFactory() {
+    }
+
+    public static BandcampCommentsLinkHandlerFactory getInstance() {
+        return INSTANCE;
+    }
 
     @Override
-    public String getId(final String url) throws ParsingException {
+    public String getId(final String url) throws ParsingException, UnsupportedOperationException {
         return url;
     }
 
     @Override
     public boolean onAcceptUrl(final String url) throws ParsingException {
+        if (BandcampExtractorHelper.isRadioUrl(url)) {
+            return true;
+        }
+
         // Don't accept URLs that don't point to a track
         if (!url.toLowerCase().matches("https?://.+\\..+/(track|album)/.+")) {
             return false;
@@ -30,8 +49,9 @@ public class BandcampCommentsLinkHandlerFactory extends ListLinkHandlerFactory {
 
     @Override
     public String getUrl(final String id,
-                         final List<String> contentFilter,
-                         final String sortFilter) throws ParsingException {
+                         @Nonnull final List<FilterItem> contentFilter,
+                         @Nullable final List<FilterItem> sortFilter)
+            throws ParsingException, UnsupportedOperationException {
         return id;
     }
 }

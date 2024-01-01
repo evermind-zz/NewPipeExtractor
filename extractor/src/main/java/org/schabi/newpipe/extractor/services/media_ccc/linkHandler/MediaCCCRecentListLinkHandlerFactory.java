@@ -1,15 +1,31 @@
 package org.schabi.newpipe.extractor.services.media_ccc.linkHandler;
 
+import org.schabi.newpipe.extractor.search.filter.FilterItem;
+
+import org.schabi.newpipe.extractor.exceptions.ParsingException;
 import org.schabi.newpipe.extractor.linkhandler.ListLinkHandlerFactory;
 
 import java.util.List;
 import java.util.regex.Pattern;
 
-public class MediaCCCRecentListLinkHandlerFactory extends ListLinkHandlerFactory {
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
+public final class MediaCCCRecentListLinkHandlerFactory extends ListLinkHandlerFactory {
+
+    private static final MediaCCCRecentListLinkHandlerFactory INSTANCE =
+            new MediaCCCRecentListLinkHandlerFactory();
     private static final String PATTERN = "^(https?://)?media\\.ccc\\.de/recent/?$";
 
+    private MediaCCCRecentListLinkHandlerFactory() {
+    }
+
+    public static MediaCCCRecentListLinkHandlerFactory getInstance() {
+        return INSTANCE;
+    }
+
     @Override
-    public String getId(final String url) {
+    public String getId(final String url) throws ParsingException, UnsupportedOperationException {
         return "recent";
     }
 
@@ -20,8 +36,9 @@ public class MediaCCCRecentListLinkHandlerFactory extends ListLinkHandlerFactory
 
     @Override
     public String getUrl(final String id,
-                         final List<String> contentFilter,
-                         final String sortFilter) {
+                         @Nonnull final List<FilterItem> contentFilter,
+                         @Nullable final List<FilterItem> sortFilter)
+            throws ParsingException, UnsupportedOperationException {
         return "https://media.ccc.de/recent";
     }
 }

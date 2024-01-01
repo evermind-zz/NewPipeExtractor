@@ -2,10 +2,12 @@ package org.schabi.newpipe.extractor.services.youtube;
 
 import org.schabi.newpipe.extractor.MediaFormat;
 import org.schabi.newpipe.extractor.exceptions.ParsingException;
+import org.schabi.newpipe.extractor.stream.AudioTrackType;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.Serializable;
+import java.util.Locale;
 
 import static org.schabi.newpipe.extractor.MediaFormat.M4A;
 import static org.schabi.newpipe.extractor.MediaFormat.MPEG_4;
@@ -49,9 +51,11 @@ public class ItagItem implements Serializable {
             //////////////////////////////////////////////////////////////////
             new ItagItem(171, AUDIO, WEBMA, 128),
             new ItagItem(172, AUDIO, WEBMA, 256),
+            new ItagItem(599, AUDIO, M4A, 32),
             new ItagItem(139, AUDIO, M4A, 48),
             new ItagItem(140, AUDIO, M4A, 128),
             new ItagItem(141, AUDIO, M4A, 256),
+            new ItagItem(600, AUDIO, WEBMA_OPUS, 35),
             new ItagItem(249, AUDIO, WEBMA_OPUS, 50),
             new ItagItem(250, AUDIO, WEBMA_OPUS, 70),
             new ItagItem(251, AUDIO, WEBMA_OPUS, 160),
@@ -60,15 +64,23 @@ public class ItagItem implements Serializable {
             //           ID      Type     Format  Resolution  FPS  ////
             ///////////////////////////////////////////////////////////
             new ItagItem(160, VIDEO_ONLY, MPEG_4, "144p"),
+            new ItagItem(394, VIDEO_ONLY, MPEG_4, "144p"),
             new ItagItem(133, VIDEO_ONLY, MPEG_4, "240p"),
+            new ItagItem(395, VIDEO_ONLY, MPEG_4, "240p"),
             new ItagItem(134, VIDEO_ONLY, MPEG_4, "360p"),
+            new ItagItem(396, VIDEO_ONLY, MPEG_4, "360p"),
             new ItagItem(135, VIDEO_ONLY, MPEG_4, "480p"),
             new ItagItem(212, VIDEO_ONLY, MPEG_4, "480p"),
+            new ItagItem(397, VIDEO_ONLY, MPEG_4, "480p"),
             new ItagItem(136, VIDEO_ONLY, MPEG_4, "720p"),
+            new ItagItem(398, VIDEO_ONLY, MPEG_4, "720p"),
             new ItagItem(298, VIDEO_ONLY, MPEG_4, "720p60", 60),
             new ItagItem(137, VIDEO_ONLY, MPEG_4, "1080p"),
+            new ItagItem(399, VIDEO_ONLY, MPEG_4, "1080p"),
             new ItagItem(299, VIDEO_ONLY, MPEG_4, "1080p60", 60),
+            new ItagItem(400, VIDEO_ONLY, MPEG_4, "1440p"),
             new ItagItem(266, VIDEO_ONLY, MPEG_4, "2160p"),
+            new ItagItem(401, VIDEO_ONLY, MPEG_4, "2160p"),
 
             new ItagItem(278, VIDEO_ONLY, WEBM, "144p"),
             new ItagItem(242, VIDEO_ONLY, WEBM, "240p"),
@@ -198,6 +210,10 @@ public class ItagItem implements Serializable {
         this.targetDurationSec = itagItem.targetDurationSec;
         this.approxDurationMs = itagItem.approxDurationMs;
         this.contentLength = itagItem.contentLength;
+        this.audioTrackId = itagItem.audioTrackId;
+        this.audioTrackName = itagItem.audioTrackName;
+        this.audioTrackType = itagItem.audioTrackType;
+        this.audioLocale = itagItem.audioLocale;
     }
 
     public MediaFormat getMediaFormat() {
@@ -246,6 +262,10 @@ public class ItagItem implements Serializable {
     private long contentLength = CONTENT_LENGTH_UNKNOWN;
     private String audioTrackId;
     private String audioTrackName;
+    @Nullable
+    private AudioTrackType audioTrackType;
+    @Nullable
+    private Locale audioLocale;
 
     public int getBitrate() {
         return bitrate;
@@ -569,7 +589,7 @@ public class ItagItem implements Serializable {
     /**
      * Get the {@code audioTrackName} of the stream, if present.
      *
-     * @return the {@code audioTrackName} of the stream or null
+     * @return the {@code audioTrackName} of the stream or {@code null}
      */
     @Nullable
     public String getAudioTrackName() {
@@ -577,11 +597,54 @@ public class ItagItem implements Serializable {
     }
 
     /**
-     * Set the {@code audioTrackName} of the stream.
+     * Set the {@code audioTrackName} of the stream, if present.
      *
-     * @param audioTrackName the {@code audioTrackName} of the stream
+     * @param audioTrackName the {@code audioTrackName} of the stream or {@code null}
      */
     public void setAudioTrackName(@Nullable final String audioTrackName) {
         this.audioTrackName = audioTrackName;
+    }
+
+    /**
+     * Get the {@link AudioTrackType} of the stream.
+     *
+     * @return the {@link AudioTrackType} of the stream or {@code null}
+     */
+    @Nullable
+    public AudioTrackType getAudioTrackType() {
+        return audioTrackType;
+    }
+
+    /**
+     * Set the {@link AudioTrackType} of the stream, if present.
+     *
+     * @param audioTrackType the {@link AudioTrackType} of the stream or {@code null}
+     */
+    public void setAudioTrackType(@Nullable final AudioTrackType audioTrackType) {
+        this.audioTrackType = audioTrackType;
+    }
+
+    /**
+     * Return the audio {@link Locale} of the stream, if known.
+     *
+     * @return the audio {@link Locale} of the stream, if known, or {@code null} if that's not the
+     * case
+     */
+    @Nullable
+    public Locale getAudioLocale() {
+        return audioLocale;
+    }
+
+    /**
+     * Set the audio {@link Locale} of the stream.
+     *
+     * <p>
+     * If it is unknown, {@code null} could be passed, which is the default value.
+     * </p>
+     *
+     * @param audioLocale the audio {@link Locale} of the stream, which could be {@code null}
+     */
+    public void setAudioLocale(@Nullable final Locale audioLocale) {
+        this.audioLocale = audioLocale;
     }
 }

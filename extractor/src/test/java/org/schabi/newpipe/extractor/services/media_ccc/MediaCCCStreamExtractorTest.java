@@ -1,5 +1,10 @@
 package org.schabi.newpipe.extractor.services.media_ccc;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.schabi.newpipe.extractor.ExtractorAsserts.assertContainsImageUrlInImageCollection;
+import static org.schabi.newpipe.extractor.ServiceList.MediaCCC;
+
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.schabi.newpipe.downloader.DownloaderTestImpl;
@@ -7,17 +12,16 @@ import org.schabi.newpipe.extractor.NewPipe;
 import org.schabi.newpipe.extractor.StreamingService;
 import org.schabi.newpipe.extractor.services.DefaultStreamExtractorTest;
 import org.schabi.newpipe.extractor.services.media_ccc.extractors.MediaCCCStreamExtractor;
+import org.schabi.newpipe.extractor.stream.AudioStream;
 import org.schabi.newpipe.extractor.stream.StreamExtractor;
 import org.schabi.newpipe.extractor.stream.StreamType;
-
-import javax.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.schabi.newpipe.extractor.ServiceList.MediaCCC;
+import javax.annotation.Nullable;
 
 /**
  * Test {@link MediaCCCStreamExtractor}
@@ -62,16 +66,20 @@ public class MediaCCCStreamExtractorTest {
 
         @Override
         @Test
-        public void testThumbnailUrl() throws Exception {
-            super.testThumbnailUrl();
-            assertEquals("https://static.media.ccc.de/media/events/gpn/gpn18/105-hd.jpg", extractor.getThumbnailUrl());
+        public void testThumbnails() throws Exception {
+            super.testThumbnails();
+            assertContainsImageUrlInImageCollection(
+                    "https://static.media.ccc.de/media/events/gpn/gpn18/105-hd_preview.jpg",
+                    extractor.getThumbnails());
         }
 
         @Override
         @Test
-        public void testUploaderAvatarUrl() throws Exception {
-            super.testUploaderAvatarUrl();
-            assertEquals("https://static.media.ccc.de/media/events/gpn/gpn18/logo.png", extractor.getUploaderAvatarUrl());
+        public void testUploaderAvatars() throws Exception {
+            super.testUploaderAvatars();
+            assertContainsImageUrlInImageCollection(
+                    "https://static.media.ccc.de/media/events/gpn/gpn18/logo.png",
+                    extractor.getUploaderAvatars());
         }
 
         @Override
@@ -85,7 +93,11 @@ public class MediaCCCStreamExtractorTest {
         @Test
         public void testAudioStreams() throws Exception {
             super.testAudioStreams();
-            assertEquals(2, extractor.getAudioStreams().size());
+            final List<AudioStream> audioStreams = extractor.getAudioStreams();
+            assertEquals(2, audioStreams.size());
+            final Locale expectedLocale = Locale.forLanguageTag("deu");
+            assertTrue(audioStreams.stream().allMatch(audioStream ->
+                    Objects.equals(audioStream.getAudioLocale(), expectedLocale)));
         }
     }
 
@@ -132,16 +144,20 @@ public class MediaCCCStreamExtractorTest {
 
         @Override
         @Test
-        public void testThumbnailUrl() throws Exception {
-            super.testThumbnailUrl();
-            assertEquals("https://static.media.ccc.de/media/congress/2019/10565-hd.jpg", extractor.getThumbnailUrl());
+        public void testThumbnails() throws Exception {
+            super.testThumbnails();
+            assertContainsImageUrlInImageCollection(
+                    "https://static.media.ccc.de/media/congress/2019/10565-hd_preview.jpg",
+                    extractor.getThumbnails());
         }
 
         @Override
         @Test
-        public void testUploaderAvatarUrl() throws Exception {
-            super.testUploaderAvatarUrl();
-            assertEquals("https://static.media.ccc.de/media/congress/2019/logo.png", extractor.getUploaderAvatarUrl());
+        public void testUploaderAvatars() throws Exception {
+            super.testUploaderAvatars();
+            assertContainsImageUrlInImageCollection(
+                    "https://static.media.ccc.de/media/congress/2019/logo.png",
+                    extractor.getUploaderAvatars());
         }
 
         @Override
@@ -155,7 +171,11 @@ public class MediaCCCStreamExtractorTest {
         @Test
         public void testAudioStreams() throws Exception {
             super.testAudioStreams();
-            assertEquals(2, extractor.getAudioStreams().size());
+            final List<AudioStream> audioStreams = extractor.getAudioStreams();
+            assertEquals(2, audioStreams.size());
+            final Locale expectedLocale = Locale.forLanguageTag("eng");
+            assertTrue(audioStreams.stream().allMatch(audioStream ->
+                    Objects.equals(audioStream.getAudioLocale(), expectedLocale)));
         }
 
         @Override

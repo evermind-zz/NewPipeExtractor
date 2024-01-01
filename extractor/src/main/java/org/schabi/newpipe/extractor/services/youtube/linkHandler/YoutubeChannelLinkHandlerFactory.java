@@ -1,7 +1,7 @@
 /*
  * Created by Christian Schabesberger on 25.07.16.
  *
- * Copyright (C) Christian Schabesberger 2018 <chrźis.schabesberger@mailbox.org>
+ * Copyright (C) 2018 Christian Schabesberger <chrźis.schabesberger@mailbox.org>
  * YoutubeChannelLinkHandlerFactory.java is part of NewPipe Extractor.
  *
  * NewPipe Extractor is free software: you can redistribute it and/or modify
@@ -20,12 +20,16 @@
 
 package org.schabi.newpipe.extractor.services.youtube.linkHandler;
 
+import org.schabi.newpipe.extractor.search.filter.FilterItem;
+
 import org.schabi.newpipe.extractor.exceptions.ParsingException;
 import org.schabi.newpipe.extractor.linkhandler.ListLinkHandlerFactory;
 import org.schabi.newpipe.extractor.services.youtube.YoutubeParsingHelper;
 import org.schabi.newpipe.extractor.utils.Utils;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
 import java.net.URL;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -53,12 +57,15 @@ public final class YoutubeChannelLinkHandlerFactory extends ListLinkHandlerFacto
      * Returns the URL to a channel from an ID.
      *
      * @param id the channel ID including e.g. 'channel/'
+     * @param contentFilters
+     * @param searchFilter
      * @return the URL to the channel
      */
     @Override
     public String getUrl(final String id,
-                         final List<String> contentFilters,
-                         final String searchFilter) {
+                         @Nonnull final List<FilterItem> contentFilters,
+                         @Nullable final List<FilterItem> searchFilter)
+            throws ParsingException, UnsupportedOperationException {
         return "https://www.youtube.com/" + id;
     }
 
@@ -84,7 +91,7 @@ public final class YoutubeChannelLinkHandlerFactory extends ListLinkHandlerFacto
     }
 
     @Override
-    public String getId(final String url) throws ParsingException {
+    public String getId(final String url) throws ParsingException, UnsupportedOperationException {
         try {
             final URL urlObj = Utils.stringToURL(url);
             String path = urlObj.getPath();

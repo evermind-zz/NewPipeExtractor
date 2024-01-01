@@ -1,7 +1,7 @@
 /*
  * Created by Christian Schabesberger on 12.08.17.
  *
- * Copyright (C) Christian Schabesberger 2018 <chris.schabesberger@mailbox.org>
+ * Copyright (C) 2018 Christian Schabesberger <chris.schabesberger@mailbox.org>
  * YoutubeTrendingExtractor.java is part of NewPipe Extractor.
  *
  * NewPipe Extractor is free software: you can redistribute it and/or modify
@@ -41,11 +41,17 @@ import org.schabi.newpipe.extractor.stream.StreamInfoItemsCollector;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.stream.Stream;
 
 import javax.annotation.Nonnull;
 
 public class YoutubeTrendingExtractor extends KioskExtractor<StreamInfoItem> {
+
+    public static final String KIOSK_ID = "Trending";
+
     private JsonObject initialData;
+
+    private static final String VIDEOS_TAB_PARAMS = "4gIOGgxtb3N0X3BvcHVsYXI%3D";
 
     public YoutubeTrendingExtractor(final StreamingService service,
                                     final ListLinkHandler linkHandler,
@@ -60,6 +66,7 @@ public class YoutubeTrendingExtractor extends KioskExtractor<StreamInfoItem> {
         final byte[] body = JsonWriter.string(prepareDesktopJsonBuilder(getExtractorLocalization(),
                 getExtractorContentCountry())
                 .value("browseId", "FEtrending")
+                .value("params", VIDEOS_TAB_PARAMS)
                 .done())
                 .getBytes(StandardCharsets.UTF_8);
         // @formatter:on
@@ -81,6 +88,8 @@ public class YoutubeTrendingExtractor extends KioskExtractor<StreamInfoItem> {
             name = getTextAtKey(header.getObject("feedTabbedHeaderRenderer"), "title");
         } else if (header.has("c4TabbedHeaderRenderer")) {
             name = getTextAtKey(header.getObject("c4TabbedHeaderRenderer"), "title");
+        } else if (header.has("pageHeaderRenderer")) {
+            name = getTextAtKey(header.getObject("pageHeaderRenderer"), "pageTitle");
         }
 
         if (isNullOrEmpty(name)) {
@@ -94,7 +103,10 @@ public class YoutubeTrendingExtractor extends KioskExtractor<StreamInfoItem> {
     public InfoItemsPage<StreamInfoItem> getInitialPage() throws ParsingException {
         final StreamInfoItemsCollector collector = new StreamInfoItemsCollector(getServiceId());
         final TimeAgoParser timeAgoParser = getTimeAgoParser();
-        final JsonObject tabContent = getTrendingTabContent();
+        final JsonObject tab = getTrendingTab();
+        final JsonObject tabContent = tab.getObject("content");
+        final boolean isVideoTab = tab.getObject("endpoint").getObject("browseEndpoint")
+                .getString("params", "").equals(VIDEOS_TAB_PARAMS);
 
         if (tabContent.has("richGridRenderer")) {
             tabContent.getObject("richGridRenderer")
@@ -110,7 +122,7 @@ public class YoutubeTrendingExtractor extends KioskExtractor<StreamInfoItem> {
                     .forEachOrdered(videoRenderer -> collector.commit(
                             new YoutubeStreamInfoItemExtractor(videoRenderer, timeAgoParser)));
         } else if (tabContent.has("sectionListRenderer")) {
-            tabContent.getObject("sectionListRenderer")
+            final Stream<JsonObject> shelves = tabContent.getObject("sectionListRenderer")
                     .getArray("contents")
                     .stream()
                     .filter(JsonObject.class::isInstance)
@@ -120,11 +132,19 @@ public class YoutubeTrendingExtractor extends KioskExtractor<StreamInfoItem> {
                             .stream())
                     .filter(JsonObject.class::isInstance)
                     .map(JsonObject.class::cast)
-                    .map(content -> content.getObject("shelfRenderer"))
-                    // Filter Trending shorts and Recently trending sections which have a title,
-                    // contrary to normal trends
-                    .filter(shelfRenderer -> !shelfRenderer.has("title"))
-                    .flatMap(shelfRenderer -> shelfRenderer.getObject("content")
+                    .map(content -> content.getObject("shelfRenderer"));
+
+            final Stream<JsonObject> items;
+            if (isVideoTab) {
+                // The first shelf of the Videos tab contains the normal trends
+                items = shelves.findFirst().stream();
+            } else {
+                // Filter Trending shorts and Recently trending sections which have a title,
+                // contrary to normal trends
+                items = shelves.filter(shelfRenderer -> !shelfRenderer.has("title"));
+            }
+
+            items.flatMap(shelfRenderer -> shelfRenderer.getObject("content")
                             .getObject("expandedShelfContentsRenderer")
                             .getArray("items")
                             .stream())
@@ -138,7 +158,7 @@ public class YoutubeTrendingExtractor extends KioskExtractor<StreamInfoItem> {
         return new InfoItemsPage<>(collector, null);
     }
 
-    private JsonObject getTrendingTabContent() throws ParsingException {
+    private JsonObject getTrendingTab() throws ParsingException {
         return initialData.getObject("contents")
                 .getObject("twoColumnBrowseResultsRenderer")
                 .getArray("tabs")
@@ -150,7 +170,7 @@ public class YoutubeTrendingExtractor extends KioskExtractor<StreamInfoItem> {
                 .filter(tabRenderer -> tabRenderer.has("content"))
                 // There should be at most one tab selected
                 .findFirst()
-                .orElseThrow(() -> new ParsingException("Could not get \"Now\" trending tab"))
-                .getObject("content");
+                .orElseThrow(() ->
+                        new ParsingException("Could not get \"Now\" or \"Videos\" trending tab"));
     }
 }

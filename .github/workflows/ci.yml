@@ -17,10 +17,10 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: set up JDK 11
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: '11'
           distribution: 'temurin'
@@ -35,7 +35,7 @@ jobs:
         # See gradle file for difference between downloaders
       - name: Build and run Tests
         run: |
-          if [[ $GITHUB_EVENT_NAME == 'schedule' ]]; then
+          if [[ "$GITHUB_EVENT_NAME" == 'schedule' ]]; then
             echo running with real downloader
             ./gradlew check --stacktrace -Ddownloader=REAL
           else

@@ -2,11 +2,11 @@ package org.schabi.newpipe.extractor.services.youtube.extractors;
 
 import static org.schabi.newpipe.extractor.services.youtube.YoutubeParsingHelper.DISABLE_PRETTY_PRINT_PARAMETER;
 import static org.schabi.newpipe.extractor.services.youtube.YoutubeParsingHelper.YOUTUBEI_V1_URL;
-import static org.schabi.newpipe.extractor.services.youtube.YoutubeParsingHelper.addYouTubeHeaders;
 import static org.schabi.newpipe.extractor.services.youtube.YoutubeParsingHelper.extractCookieValue;
 import static org.schabi.newpipe.extractor.services.youtube.YoutubeParsingHelper.extractPlaylistTypeFromPlaylistId;
 import static org.schabi.newpipe.extractor.services.youtube.YoutubeParsingHelper.getKey;
 import static org.schabi.newpipe.extractor.services.youtube.YoutubeParsingHelper.getValidJsonResponseBody;
+import static org.schabi.newpipe.extractor.services.youtube.YoutubeParsingHelper.getYouTubeHeaders;
 import static org.schabi.newpipe.extractor.services.youtube.YoutubeParsingHelper.prepareDesktopJsonBuilder;
 import static org.schabi.newpipe.extractor.utils.Utils.getQueryValue;
 import static org.schabi.newpipe.extractor.utils.Utils.isNullOrEmpty;
@@ -17,6 +17,8 @@ import com.grack.nanojson.JsonBuilder;
 import com.grack.nanojson.JsonObject;
 import com.grack.nanojson.JsonWriter;
 
+import org.schabi.newpipe.extractor.Image;
+import org.schabi.newpipe.extractor.Image.ResolutionLevel;
 import org.schabi.newpipe.extractor.ListExtractor;
 import org.schabi.newpipe.extractor.Page;
 import org.schabi.newpipe.extractor.StreamingService;
@@ -31,8 +33,10 @@ import org.schabi.newpipe.extractor.localization.TimeAgoParser;
 import org.schabi.newpipe.extractor.playlist.PlaylistExtractor;
 import org.schabi.newpipe.extractor.playlist.PlaylistInfo;
 import org.schabi.newpipe.extractor.services.youtube.YoutubeParsingHelper;
+import org.schabi.newpipe.extractor.stream.Description;
 import org.schabi.newpipe.extractor.stream.StreamInfoItem;
 import org.schabi.newpipe.extractor.stream.StreamInfoItemsCollector;
+import org.schabi.newpipe.extractor.utils.ImageSuffix;
 import org.schabi.newpipe.extractor.utils.JsonUtils;
 
 import java.io.IOException;
@@ -42,6 +46,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -52,6 +57,12 @@ import javax.annotation.Nullable;
  * {@code youtube.com/watch?v=videoId&list=playlistId}
  */
 public class YoutubeMixPlaylistExtractor extends PlaylistExtractor {
+    private static final List<ImageSuffix> IMAGE_URL_SUFFIXES_AND_RESOLUTIONS = List.of(
+            // sqdefault and maxresdefault image resolutions are not available on all
+            // videos, so don't add them in the list of available resolutions
+            new ImageSuffix("default.jpg", 90, 120, ResolutionLevel.LOW),
+            new ImageSuffix("mqdefault.jpg", 180, 320, ResolutionLevel.MEDIUM),
+            new ImageSuffix("hqdefault.jpg", 360, 480, ResolutionLevel.MEDIUM));
 
     /**
      * YouTube identifies mixes based on this cookie. With this information it can generate
@@ -88,12 +99,12 @@ public class YoutubeMixPlaylistExtractor extends PlaylistExtractor {
 
         final byte[] body = JsonWriter.string(jsonBody.done()).getBytes(StandardCharsets.UTF_8);
 
-        final Map<String, List<String>> headers = new HashMap<>();
         // Cookie is required due to consent
-        addYouTubeHeaders(headers);
+        final var headers = getYouTubeHeaders();
 
-        final Response response = getDownloader().post(YOUTUBEI_V1_URL + "next?key=" + getKey()
-                + DISABLE_PRETTY_PRINT_PARAMETER, headers, body, localization);
+        final Response response = getDownloader().postWithContentTypeJson(
+                YOUTUBEI_V1_URL + "next?key=" + getKey() + DISABLE_PRETTY_PRINT_PARAMETER,
+                headers, body, localization);
 
         initialData = JsonUtils.toJsonObject(getValidJsonResponseBody(response));
         playlistData = initialData
@@ -125,18 +136,18 @@ public class YoutubeMixPlaylistExtractor extends PlaylistExtractor {
 
     @Nonnull
     @Override
-    public String getThumbnailUrl() throws ParsingException {
+    public List<Image> getThumbnails() throws ParsingException {
         try {
-            return getThumbnailUrlFromPlaylistId(playlistData.getString("playlistId"));
+            return getThumbnailsFromPlaylistId(playlistData.getString("playlistId"));
         } catch (final Exception e) {
             try {
-                // Fallback to thumbnail of current video. Always the case for channel mix
-                return getThumbnailUrlFromVideoId(initialData.getObject("currentVideoEndpoint")
+                // Fallback to thumbnail of current video. Always the case for channel mixes
+                return getThumbnailsFromVideoId(initialData.getObject("currentVideoEndpoint")
                         .getObject("watchEndpoint").getString("videoId"));
             } catch (final Exception ignored) {
             }
 
-            throw new ParsingException("Could not get playlist thumbnail", e);
+            throw new ParsingException("Could not get playlist thumbnails", e);
         }
     }
 
@@ -152,10 +163,11 @@ public class YoutubeMixPlaylistExtractor extends PlaylistExtractor {
         return "YouTube";
     }
 
+    @Nonnull
     @Override
-    public String getUploaderAvatarUrl() {
+    public List<Image> getUploaderAvatars() {
         // YouTube mixes are auto-generated by YouTube
-        return "";
+        return List.of();
     }
 
     @Override
@@ -167,6 +179,12 @@ public class YoutubeMixPlaylistExtractor extends PlaylistExtractor {
     public long getStreamCount() {
         // Auto-generated playlists always start with 25 videos and are endless
         return ListExtractor.ITEM_COUNT_INFINITE;
+    }
+
+    @Nonnull
+    @Override
+    public Description getDescription() throws ParsingException {
+        return Description.EMPTY_DESCRIPTION;
     }
 
     @Nonnull
@@ -221,12 +239,11 @@ public class YoutubeMixPlaylistExtractor extends PlaylistExtractor {
         }
 
         final StreamInfoItemsCollector collector = new StreamInfoItemsCollector(getServiceId());
-        final Map<String, List<String>> headers = new HashMap<>();
         // Cookie is required due to consent
-        addYouTubeHeaders(headers);
+        final var headers = getYouTubeHeaders();
 
-        final Response response = getDownloader().post(page.getUrl(), headers, page.getBody(),
-                getExtractorLocalization());
+        final Response response = getDownloader().postWithContentTypeJson(page.getUrl(), headers,
+                page.getBody(), getExtractorLocalization());
         final JsonObject ajaxJson = JsonUtils.toJsonObject(getValidJsonResponseBody(response));
         final JsonObject playlistJson = ajaxJson.getObject("contents")
                 .getObject("twoColumnWatchNextResults").getObject("playlist").getObject("playlist");
@@ -258,14 +275,19 @@ public class YoutubeMixPlaylistExtractor extends PlaylistExtractor {
     }
 
     @Nonnull
-    private String getThumbnailUrlFromPlaylistId(@Nonnull final String playlistId)
+    private List<Image> getThumbnailsFromPlaylistId(@Nonnull final String playlistId)
             throws ParsingException {
-        return getThumbnailUrlFromVideoId(YoutubeParsingHelper.extractVideoIdFromMixId(playlistId));
+        return getThumbnailsFromVideoId(YoutubeParsingHelper.extractVideoIdFromMixId(playlistId));
     }
 
     @Nonnull
-    private String getThumbnailUrlFromVideoId(final String videoId) {
-        return "https://i.ytimg.com/vi/" + videoId + "/hqdefault.jpg";
+    private List<Image> getThumbnailsFromVideoId(@Nonnull final String videoId) {
+        final String baseUrl = "https://i.ytimg.com/vi/" + videoId + "/";
+        return IMAGE_URL_SUFFIXES_AND_RESOLUTIONS.stream()
+                .map(imageSuffix -> new Image(baseUrl + imageSuffix.getSuffix(),
+                        imageSuffix.getHeight(), imageSuffix.getWidth(),
+                        imageSuffix.getResolutionLevel()))
+                .collect(Collectors.toUnmodifiableList());
     }
 
     @Nonnull

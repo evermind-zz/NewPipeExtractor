@@ -2,8 +2,11 @@
 
 package org.schabi.newpipe.extractor.services.bandcamp.extractors;
 
-import static org.schabi.newpipe.extractor.services.bandcamp.extractors.BandcampExtractorHelper.getImageUrl;
+import static org.schabi.newpipe.extractor.services.bandcamp.extractors.BandcampExtractorHelper.getImagesFromImageId;
+import static org.schabi.newpipe.extractor.services.bandcamp.extractors.BandcampExtractorHelper.getImagesFromImageUrl;
+import static org.schabi.newpipe.extractor.services.bandcamp.extractors.BandcampExtractorHelper.parseDate;
 import static org.schabi.newpipe.extractor.utils.Utils.HTTPS;
+import static org.schabi.newpipe.extractor.utils.Utils.replaceHttpWithHttps;
 
 import com.grack.nanojson.JsonObject;
 import com.grack.nanojson.JsonParserException;
@@ -11,10 +14,12 @@ import com.grack.nanojson.JsonParserException;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
+import org.schabi.newpipe.extractor.Image;
 import org.schabi.newpipe.extractor.MediaFormat;
 import org.schabi.newpipe.extractor.StreamingService;
 import org.schabi.newpipe.extractor.downloader.Downloader;
 import org.schabi.newpipe.extractor.exceptions.ExtractionException;
+import org.schabi.newpipe.extractor.exceptions.PaidContentException;
 import org.schabi.newpipe.extractor.exceptions.ParsingException;
 import org.schabi.newpipe.extractor.linkhandler.LinkHandler;
 import org.schabi.newpipe.extractor.localization.DateWrapper;
@@ -57,6 +62,10 @@ public class BandcampStreamExtractor extends StreamExtractor {
             // In this case, we are actually viewing an album page!
             throw new ExtractionException("Page is actually an album, not a track");
         }
+
+        if (albumJson.getArray("trackinfo").getObject(0).isNull("file")) {
+            throw new PaidContentException("This track is not available without being purchased");
+        }
     }
 
     /**
@@ -93,7 +102,7 @@ public class BandcampStreamExtractor extends StreamExtractor {
     @Nonnull
     @Override
     public String getUrl() throws ParsingException {
-        return albumJson.getString("url").replace("http://", "https://");
+        return replaceHttpWithHttps(albumJson.getString("url"));
     }
 
     @Nonnull
@@ -111,26 +120,27 @@ public class BandcampStreamExtractor extends StreamExtractor {
     @Nullable
     @Override
     public DateWrapper getUploadDate() throws ParsingException {
-        return BandcampExtractorHelper.parseDate(getTextualUploadDate());
+        return parseDate(getTextualUploadDate());
     }
 
     @Nonnull
     @Override
-    public String getThumbnailUrl() throws ParsingException {
+    public List<Image> getThumbnails() throws ParsingException {
         if (albumJson.isNull("art_id")) {
-            return "";
+            return List.of();
         }
 
-        return getImageUrl(albumJson.getLong("art_id"), true);
+        return getImagesFromImageId(albumJson.getLong("art_id"), true);
     }
 
     @Nonnull
     @Override
-    public String getUploaderAvatarUrl() {
-        return document.getElementsByClass("band-photo").stream()
+    public List<Image> getUploaderAvatars() {
+        return getImagesFromImageUrl(document.getElementsByClass("band-photo")
+                .stream()
                 .map(element -> element.attr("src"))
                 .findFirst()
-                .orElse("");
+                .orElse(""));
     }
 
     @Nonnull

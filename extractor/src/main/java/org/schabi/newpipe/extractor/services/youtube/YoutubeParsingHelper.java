@@ -1,7 +1,7 @@
 /*
  * Created by Christian Schabesberger on 02.03.16.
  *
- * Copyright (C) Christian Schabesberger 2016 <chris.schabesberger@mailbox.org>
+ * Copyright (C) 2016 Christian Schabesberger <chris.schabesberger@mailbox.org>
  * YoutubeParsingHelper.java is part of NewPipe Extractor.
  *
  * NewPipe Extractor is free software: you can redistribute it and/or modify
@@ -25,7 +25,6 @@ import static org.schabi.newpipe.extractor.utils.Utils.HTTP;
 import static org.schabi.newpipe.extractor.utils.Utils.HTTPS;
 import static org.schabi.newpipe.extractor.utils.Utils.getStringResultFromRegexArray;
 import static org.schabi.newpipe.extractor.utils.Utils.isNullOrEmpty;
-import static java.util.Collections.singletonList;
 
 import com.grack.nanojson.JsonArray;
 import com.grack.nanojson.JsonBuilder;
@@ -34,7 +33,9 @@ import com.grack.nanojson.JsonParser;
 import com.grack.nanojson.JsonParserException;
 import com.grack.nanojson.JsonWriter;
 
-import org.schabi.newpipe.extractor.MetaInfo;
+import org.jsoup.nodes.Entities;
+import org.schabi.newpipe.extractor.Image;
+import org.schabi.newpipe.extractor.Image.ResolutionLevel;
 import org.schabi.newpipe.extractor.downloader.Response;
 import org.schabi.newpipe.extractor.exceptions.AccountTerminatedException;
 import org.schabi.newpipe.extractor.exceptions.ContentNotAvailableException;
@@ -44,7 +45,7 @@ import org.schabi.newpipe.extractor.exceptions.ReCaptchaException;
 import org.schabi.newpipe.extractor.localization.ContentCountry;
 import org.schabi.newpipe.extractor.localization.Localization;
 import org.schabi.newpipe.extractor.playlist.PlaylistInfo;
-import org.schabi.newpipe.extractor.stream.Description;
+import org.schabi.newpipe.extractor.stream.AudioTrackType;
 import org.schabi.newpipe.extractor.utils.JsonUtils;
 import org.schabi.newpipe.extractor.utils.Parser;
 import org.schabi.newpipe.extractor.utils.RandomStringFromAlphabetGenerator;
@@ -55,22 +56,19 @@ import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import javax.annotation.Nonnull;
@@ -91,6 +89,11 @@ public final class YoutubeParsingHelper {
      */
     public static final String YOUTUBEI_V1_GAPIS_URL =
             "https://youtubei.googleapis.com/youtubei/v1/";
+
+    /**
+     * The base URL of YouTube Music.
+     */
+    private static final String YOUTUBE_MUSIC_URL = "https://music.youtube.com";
 
     /**
      * A parameter to disable pretty-printed response of InnerTube requests, to reduce response
@@ -145,7 +148,7 @@ public final class YoutubeParsingHelper {
      * The client version for InnerTube requests with the {@code WEB} client, used as the last
      * fallback if the extraction of the real one failed.
      */
-    private static final String HARDCODED_CLIENT_VERSION = "2.20220809.02.00";
+    private static final String HARDCODED_CLIENT_VERSION = "2.20231208.01.00";
 
     /**
      * The InnerTube API key which should be used by YouTube's desktop website, used as a fallback
@@ -162,7 +165,7 @@ public final class YoutubeParsingHelper {
      * such as <a href="https://www.apkmirror.com/apk/google-inc/youtube/">APKMirror</a>.
      * </p>
      */
-    private static final String ANDROID_YOUTUBE_CLIENT_VERSION = "17.31.35";
+    private static final String ANDROID_YOUTUBE_CLIENT_VERSION = "18.48.37";
 
     /**
      * The InnerTube API key used by the {@code ANDROID} client. Found with the help of
@@ -180,7 +183,7 @@ public final class YoutubeParsingHelper {
      * Store page of the YouTube app</a>, in the {@code What’s New} section.
      * </p>
      */
-    private static final String IOS_YOUTUBE_CLIENT_VERSION = "17.31.4";
+    private static final String IOS_YOUTUBE_CLIENT_VERSION = "18.48.3";
 
     /**
      * The InnerTube API key used by the {@code iOS} client. Found with the help of
@@ -197,7 +200,7 @@ public final class YoutubeParsingHelper {
     private static String key;
 
     private static final String[] HARDCODED_YOUTUBE_MUSIC_KEY =
-            {"AIzaSyC9XL3ZjWddXya6X74dJoCTL-WEYFDNX30", "67", "1.20220808.01.00"};
+            {"AIzaSyC9XL3ZjWddXya6X74dJoCTL-WEYFDNX30", "67", "1.20231204.01.00"};
     private static String[] youtubeMusicKey;
 
     private static boolean keyAndVersionExtracted = false;
@@ -221,16 +224,16 @@ public final class YoutubeParsingHelper {
             "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 
     /**
-     * The device machine id for the iPhone 13, used to get 60fps with the {@code iOS} client.
+     * The device machine id for the iPhone 15, used to get 60fps with the {@code iOS} client.
      *
      * <p>
      * See <a href="https://gist.github.com/adamawolf/3048717">this GitHub Gist</a> for more
      * information.
      * </p>
      */
-    private static final String IOS_DEVICE_MODEL = "iPhone14,5";
+    private static final String IOS_DEVICE_MODEL = "iPhone15,4";
 
-    private static Random numberGenerator = new SecureRandom();
+    private static Random numberGenerator = new Random();
 
     private static final String FEED_BASE_CHANNEL_ID =
             "https://www.youtube.com/feeds/videos.xml?channel_id=";
@@ -253,24 +256,9 @@ public final class YoutubeParsingHelper {
     private static final Set<String> YOUTUBE_URLS = Set.of("youtube.com", "www.youtube.com",
             "m.youtube.com", "music.youtube.com");
 
-    /**
-     * Determines how the consent cookie (that is required for YouTube) will be generated.
-     *
-     * <p>
-     * {@code false} (default) will use {@code PENDING+}.
-     * {@code true} will use {@code YES+}.
-     * </p>
-     *
-     * <p>
-     * Setting this value to <code>true</code> is currently needed if you want to watch
-     * Mix Playlists in some countries (EU).
-     * </p>
-     *
-     * @see #generateConsentCookie()
-     */
     private static boolean consentAccepted = false;
 
-    private static boolean isGoogleURL(final String url) {
+    public static boolean isGoogleURL(final String url) {
         final String cachedUrl = extractCachedUrlIfNeeded(url);
         try {
             final URL u = new URL(cachedUrl);
@@ -385,8 +373,7 @@ public final class YoutubeParsingHelper {
      * @return Whether given id belongs to a YouTube Mix
      */
     public static boolean isYoutubeMixId(@Nonnull final String playlistId) {
-        return playlistId.startsWith("RD")
-                && !isYoutubeMusicMixId(playlistId);
+        return playlistId.startsWith("RD");
     }
 
     /**
@@ -545,24 +532,31 @@ public final class YoutubeParsingHelper {
                         .value("gl", "GB")
                         .value("clientName", "WEB")
                         .value("clientVersion", HARDCODED_CLIENT_VERSION)
+                        .value("platform", "DESKTOP")
+                        .value("utcOffsetMinutes", 0)
                     .end()
-                .object("user")
-                    .value("lockedSafetyMode", false)
+                    .object("request")
+                        .array("internalExperimentFlags")
+                        .end()
+                        .value("useSsl", true)
+                    .end()
+                    .object("user")
+                        // TODO: provide a way to enable restricted mode with:
+                        //  .value("enableSafetyMode", boolean)
+                        .value("lockedSafetyMode", false)
+                    .end()
                 .end()
                 .value("fetchLiveState", true)
-                .end()
             .end().done().getBytes(StandardCharsets.UTF_8);
         // @formatter:on
 
-        final Map<String, List<String>> headers = new HashMap<>();
-        headers.put("X-YouTube-Client-Name", singletonList("1"));
-        headers.put("X-YouTube-Client-Version",
-                singletonList(HARDCODED_CLIENT_VERSION));
+        final var headers = getClientHeaders("1", HARDCODED_CLIENT_VERSION);
 
         // This endpoint is fetched by the YouTube website to get the items of its main menu and is
         // pretty lightweight (around 30kB)
-        final Response response = getDownloader().post(YOUTUBEI_V1_URL + "guide?key="
-                        + HARDCODED_KEY + DISABLE_PRETTY_PRINT_PARAMETER, headers, body);
+        final Response response = getDownloader().postWithContentTypeJson(
+                YOUTUBEI_V1_URL + "guide?key=" + HARDCODED_KEY + DISABLE_PRETTY_PRINT_PARAMETER,
+                headers, body);
         final String responseBody = response.responseBody();
         final int responseCode = response.responseCode();
 
@@ -578,9 +572,7 @@ public final class YoutubeParsingHelper {
             return;
         }
         final String url = "https://www.youtube.com/sw.js";
-        final Map<String, List<String>> headers = new HashMap<>();
-        headers.put("Origin", singletonList("https://www.youtube.com"));
-        headers.put("Referer", singletonList("https://www.youtube.com"));
+        final var headers = getOriginReferrerHeaders("https://www.youtube.com");
         final String response = getDownloader().get(url, headers).responseBody();
         try {
             clientVersion = getStringResultFromRegexArray(response,
@@ -768,7 +760,7 @@ public final class YoutubeParsingHelper {
     public static boolean isHardcodedYoutubeMusicKeyValid() throws IOException,
             ReCaptchaException {
         final String url =
-                "https://music.youtube.com/youtubei/v1/music/get_search_suggestions?alt=json&key="
+                "https://music.youtube.com/youtubei/v1/music/get_search_suggestions?key="
                         + HARDCODED_YOUTUBE_MUSIC_KEY[0] + DISABLE_PRETTY_PRINT_PARAMETER;
 
         // @formatter:off
@@ -780,35 +772,29 @@ public final class YoutubeParsingHelper {
                         .value("clientVersion", HARDCODED_YOUTUBE_MUSIC_KEY[2])
                         .value("hl", "en-GB")
                         .value("gl", "GB")
-                        .array("experimentIds").end()
-                        .value("experimentsToken", "")
-                        .object("locationInfo").end()
-                        .object("musicAppInfo").end()
+                        .value("platform", "DESKTOP")
+                        .value("utcOffsetMinutes", 0)
                     .end()
-                    .object("capabilities").end()
                     .object("request")
-                        .array("internalExperimentFlags").end()
-                        .object("sessionIndex").end()
+                        .array("internalExperimentFlags")
+                        .end()
+                        .value("useSsl", true)
                     .end()
-                    .object("activePlayers").end()
                     .object("user")
-                        .value("enableSafetyMode", false)
+                        // TODO: provide a way to enable restricted mode with:
+                        //  .value("enableSafetyMode", boolean)
+                        .value("lockedSafetyMode", false)
                     .end()
                 .end()
                 .value("input", "")
             .end().done().getBytes(StandardCharsets.UTF_8);
         // @formatter:on
 
-        final Map<String, List<String>> headers = new HashMap<>();
-        headers.put("X-YouTube-Client-Name", singletonList(
-                HARDCODED_YOUTUBE_MUSIC_KEY[1]));
-        headers.put("X-YouTube-Client-Version", singletonList(
+        final var headers = new HashMap<>(getOriginReferrerHeaders(YOUTUBE_MUSIC_URL));
+        headers.putAll(getClientHeaders(HARDCODED_YOUTUBE_MUSIC_KEY[1],
                 HARDCODED_YOUTUBE_MUSIC_KEY[2]));
-        headers.put("Origin", singletonList("https://music.youtube.com"));
-        headers.put("Referer", singletonList("music.youtube.com"));
-        headers.put("Content-Type", singletonList("application/json"));
 
-        final Response response = getDownloader().post(url, headers, json);
+        final Response response = getDownloader().postWithContentTypeJson(url, headers, json);
         // Ensure to have a valid response
         return response.responseBody().length() > 500 && response.responseCode() == 200;
     }
@@ -829,21 +815,19 @@ public final class YoutubeParsingHelper {
 
         try {
             final String url = "https://music.youtube.com/sw.js";
-            final Map<String, List<String>> headers = new HashMap<>();
-            headers.put("Origin", singletonList("https://music.youtube.com"));
-            headers.put("Referer", singletonList("https://music.youtube.com"));
+            final var headers = getOriginReferrerHeaders(YOUTUBE_MUSIC_URL);
             final String response = getDownloader().get(url, headers).responseBody();
-                musicClientVersion = getStringResultFromRegexArray(response,
-                        INNERTUBE_CONTEXT_CLIENT_VERSION_REGEXES, 1);
-                musicKey = getStringResultFromRegexArray(response, INNERTUBE_API_KEY_REGEXES, 1);
-                musicClientName = Parser.matchGroup1(INNERTUBE_CLIENT_NAME_REGEX, response);
+            musicClientVersion = getStringResultFromRegexArray(response,
+                    INNERTUBE_CONTEXT_CLIENT_VERSION_REGEXES, 1);
+            musicKey = getStringResultFromRegexArray(response, INNERTUBE_API_KEY_REGEXES, 1);
+            musicClientName = Parser.matchGroup1(INNERTUBE_CLIENT_NAME_REGEX, response);
         } catch (final Exception e) {
             final String url = "https://music.youtube.com/?ucbcb=1";
             final String html = getDownloader().get(url, getCookieHeader()).responseBody();
 
             musicKey = getStringResultFromRegexArray(html, INNERTUBE_API_KEY_REGEXES, 1);
             musicClientVersion = getStringResultFromRegexArray(html,
-                    INNERTUBE_CONTEXT_CLIENT_VERSION_REGEXES);
+                    INNERTUBE_CONTEXT_CLIENT_VERSION_REGEXES, 1);
             musicClientName = Parser.matchGroup1(INNERTUBE_CLIENT_NAME_REGEX, html);
         }
 
@@ -852,10 +836,11 @@ public final class YoutubeParsingHelper {
     }
 
     @Nullable
-    public static String getUrlFromNavigationEndpoint(@Nonnull final JsonObject navigationEndpoint)
-            throws ParsingException {
+    public static String getUrlFromNavigationEndpoint(
+            @Nonnull final JsonObject navigationEndpoint) {
         if (navigationEndpoint.has("urlEndpoint")) {
-            String internUrl = navigationEndpoint.getObject("urlEndpoint").getString("url");
+            String internUrl = navigationEndpoint.getObject("urlEndpoint")
+                    .getString("url");
             if (internUrl.startsWith("https://www.youtube.com/redirect?")) {
                 // remove https://www.youtube.com part to fall in the next if block
                 internUrl = internUrl.substring(23);
@@ -880,7 +865,9 @@ public final class YoutubeParsingHelper {
                     || internUrl.startsWith("/watch")) {
                 return "https://www.youtube.com" + internUrl;
             }
-        } else if (navigationEndpoint.has("browseEndpoint")) {
+        }
+
+        if (navigationEndpoint.has("browseEndpoint")) {
             final JsonObject browseEndpoint = navigationEndpoint.getObject("browseEndpoint");
             final String canonicalBaseUrl = browseEndpoint.getString("canonicalBaseUrl");
             final String browseId = browseEndpoint.getString("browseId");
@@ -893,26 +880,39 @@ public final class YoutubeParsingHelper {
             if (!isNullOrEmpty(canonicalBaseUrl)) {
                 return "https://www.youtube.com" + canonicalBaseUrl;
             }
+        }
 
-            throw new ParsingException("canonicalBaseUrl is null and browseId is not a channel (\""
-                    + browseEndpoint + "\")");
-        } else if (navigationEndpoint.has("watchEndpoint")) {
+        if (navigationEndpoint.has("watchEndpoint")) {
             final StringBuilder url = new StringBuilder();
-            url.append("https://www.youtube.com/watch?v=").append(navigationEndpoint
-                    .getObject("watchEndpoint").getString(VIDEO_ID));
+            url.append("https://www.youtube.com/watch?v=")
+                    .append(navigationEndpoint.getObject("watchEndpoint")
+                            .getString(VIDEO_ID));
             if (navigationEndpoint.getObject("watchEndpoint").has("playlistId")) {
                 url.append("&list=").append(navigationEndpoint.getObject("watchEndpoint")
                         .getString("playlistId"));
             }
             if (navigationEndpoint.getObject("watchEndpoint").has("startTimeSeconds")) {
-                url.append("&amp;t=").append(navigationEndpoint.getObject("watchEndpoint")
+                url.append("&t=")
+                        .append(navigationEndpoint.getObject("watchEndpoint")
                         .getInt("startTimeSeconds"));
             }
             return url.toString();
-        } else if (navigationEndpoint.has("watchPlaylistEndpoint")) {
-            return "https://www.youtube.com/playlist?list="
-                    + navigationEndpoint.getObject("watchPlaylistEndpoint").getString("playlistId");
         }
+
+        if (navigationEndpoint.has("watchPlaylistEndpoint")) {
+            return "https://www.youtube.com/playlist?list="
+                    + navigationEndpoint.getObject("watchPlaylistEndpoint")
+                    .getString("playlistId");
+        }
+
+        if (navigationEndpoint.has("commandMetadata")) {
+            final JsonObject metadata = navigationEndpoint.getObject("commandMetadata")
+                    .getObject("webCommandMetadata");
+            if (metadata.has("url")) {
+                return "https://www.youtube.com" + metadata.getString("url");
+            }
+        }
+
         return null;
     }
 
@@ -925,8 +925,7 @@ public final class YoutubeParsingHelper {
      * @return text in the JSON object or {@code null}
      */
     @Nullable
-    public static String getTextFromObject(final JsonObject textObject, final boolean html)
-            throws ParsingException {
+    public static String getTextFromObject(final JsonObject textObject, final boolean html) {
         if (isNullOrEmpty(textObject)) {
             return null;
         }
@@ -940,18 +939,51 @@ public final class YoutubeParsingHelper {
         }
 
         final StringBuilder textBuilder = new StringBuilder();
-        for (final Object textPart : textObject.getArray("runs")) {
-            final String text = ((JsonObject) textPart).getString("text");
-            if (html && ((JsonObject) textPart).has("navigationEndpoint")) {
-                final String url = getUrlFromNavigationEndpoint(((JsonObject) textPart)
-                        .getObject("navigationEndpoint"));
-                if (!isNullOrEmpty(url)) {
-                    textBuilder.append("<a href=\"").append(url).append("\">").append(text)
-                            .append("</a>");
-                    continue;
+        for (final Object o : textObject.getArray("runs")) {
+            final JsonObject run = (JsonObject) o;
+            String text = run.getString("text");
+
+            if (html) {
+                if (run.has("navigationEndpoint")) {
+                    final String url = getUrlFromNavigationEndpoint(
+                            run.getObject("navigationEndpoint"));
+                    if (!isNullOrEmpty(url)) {
+                        text = "<a href=\"" + Entities.escape(url) + "\">" + Entities.escape(text)
+                                + "</a>";
+                    }
                 }
+
+                final boolean bold = run.has("bold")
+                        && run.getBoolean("bold");
+                final boolean italic = run.has("italics")
+                        && run.getBoolean("italics");
+                final boolean strikethrough = run.has("strikethrough")
+                        && run.getBoolean("strikethrough");
+
+                if (bold) {
+                    textBuilder.append("<b>");
+                }
+                if (italic) {
+                    textBuilder.append("<i>");
+                }
+                if (strikethrough) {
+                    textBuilder.append("<s>");
+                }
+
+                textBuilder.append(text);
+
+                if (strikethrough) {
+                    textBuilder.append("</s>");
+                }
+                if (italic) {
+                    textBuilder.append("</i>");
+                }
+                if (bold) {
+                    textBuilder.append("</b>");
+                }
+            } else {
+                textBuilder.append(text);
             }
-            textBuilder.append(text);
         }
 
         String text = textBuilder.toString();
@@ -983,15 +1015,16 @@ public final class YoutubeParsingHelper {
         }
 
         final String content = attributedDescription.getString("content");
-        final JsonArray commandRuns = attributedDescription.getArray("commandRuns");
         if (content == null) {
             return null;
         }
 
+        final JsonArray commandRuns = attributedDescription.getArray("commandRuns");
+
         final StringBuilder textBuilder = new StringBuilder();
         int textStart = 0;
 
-        for (final Object commandRun: commandRuns) {
+        for (final Object commandRun : commandRuns) {
             if (!(commandRun instanceof JsonObject)) {
                 continue;
             }
@@ -1006,12 +1039,7 @@ public final class YoutubeParsingHelper {
                 continue;
             }
 
-            final String url;
-            try {
-                url = getUrlFromNavigationEndpoint(navigationEndpoint);
-            } catch (final ParsingException e) {
-                continue;
-            }
+            final String url = getUrlFromNavigationEndpoint(navigationEndpoint);
 
             if (url == null) {
                 continue;
@@ -1030,9 +1058,9 @@ public final class YoutubeParsingHelper {
                     .replaceFirst("^[/•] *", "");
 
             textBuilder.append("<a href=\"")
-                    .append(url)
+                    .append(Entities.escape(url))
                     .append("\">")
-                    .append(linkText)
+                    .append(Entities.escape(linkText))
                     .append("</a>");
 
             textStart = startIndex + length;
@@ -1048,14 +1076,23 @@ public final class YoutubeParsingHelper {
                 .replaceAll(" {2}", " &nbsp;");
     }
 
+    @Nonnull
+    public static String getTextFromObjectOrThrow(final JsonObject textObject, final String error)
+            throws ParsingException {
+        final String result = getTextFromObject(textObject);
+        if (result == null) {
+            throw new ParsingException("Could not extract text: " + error);
+        }
+        return result;
+    }
+
     @Nullable
-    public static String getTextFromObject(final JsonObject textObject) throws ParsingException {
+    public static String getTextFromObject(final JsonObject textObject) {
         return getTextFromObject(textObject, false);
     }
 
     @Nullable
-    public static String getUrlFromObject(final JsonObject textObject) throws ParsingException {
-
+    public static String getUrlFromObject(final JsonObject textObject) {
         if (isNullOrEmpty(textObject)) {
             return null;
         }
@@ -1076,8 +1113,7 @@ public final class YoutubeParsingHelper {
     }
 
     @Nullable
-    public static String getTextAtKey(@Nonnull final JsonObject jsonObject, final String theKey)
-            throws ParsingException {
+    public static String getTextAtKey(@Nonnull final JsonObject jsonObject, final String theKey) {
         if (jsonObject.isString(theKey)) {
             return jsonObject.getString(theKey);
         } else {
@@ -1100,15 +1136,59 @@ public final class YoutubeParsingHelper {
         return result;
     }
 
-    public static String getThumbnailUrlFromInfoItem(final JsonObject infoItem)
+    /**
+     * Get thumbnails from a {@link JsonObject} representing a YouTube
+     * {@link org.schabi.newpipe.extractor.InfoItem InfoItem}.
+     *
+     * <p>
+     * Thumbnails are got from the {@code thumbnails} {@link JsonArray} inside the {@code thumbnail}
+     * {@link JsonObject} of the YouTube {@link org.schabi.newpipe.extractor.InfoItem InfoItem},
+     * using {@link #getImagesFromThumbnailsArray(JsonArray)}.
+     * </p>
+     *
+     * @param infoItem a YouTube {@link org.schabi.newpipe.extractor.InfoItem InfoItem}
+     * @return an unmodifiable list of {@link Image}s found in the {@code thumbnails}
+     * {@link JsonArray}
+     * @throws ParsingException if an exception occurs when
+     *                          {@link #getImagesFromThumbnailsArray(JsonArray)} is executed
+     */
+    @Nonnull
+    public static List<Image> getThumbnailsFromInfoItem(@Nonnull final JsonObject infoItem)
             throws ParsingException {
-        // TODO: Don't simply get the first item, but look at all thumbnails and their resolution
         try {
-            return fixThumbnailUrl(infoItem.getObject("thumbnail").getArray("thumbnails")
-                    .getObject(0).getString("url"));
+            return getImagesFromThumbnailsArray(infoItem.getObject("thumbnail")
+                    .getArray("thumbnails"));
         } catch (final Exception e) {
-            throw new ParsingException("Could not get thumbnail url", e);
+            throw new ParsingException("Could not get thumbnails from InfoItem", e);
         }
+    }
+
+    /**
+     * Get images from a YouTube {@code thumbnails} {@link JsonArray}.
+     *
+     * <p>
+     * The properties of the {@link Image}s created will be set using the corresponding ones of
+     * thumbnail items.
+     * </p>
+     *
+     * @param thumbnails a YouTube {@code thumbnails} {@link JsonArray}
+     * @return an unmodifiable list of {@link Image}s extracted from the given {@link JsonArray}
+     */
+    @Nonnull
+    public static List<Image> getImagesFromThumbnailsArray(
+            @Nonnull final JsonArray thumbnails) {
+        return thumbnails.stream()
+                .filter(JsonObject.class::isInstance)
+                .map(JsonObject.class::cast)
+                .filter(thumbnail -> !isNullOrEmpty(thumbnail.getString("url")))
+                .map(thumbnail -> {
+                    final int height = thumbnail.getInt("height", Image.HEIGHT_UNKNOWN);
+                    return new Image(fixThumbnailUrl(thumbnail.getString("url")),
+                            height,
+                            thumbnail.getInt("width", Image.WIDTH_UNKNOWN),
+                            ResolutionLevel.fromHeight(height));
+                })
+                .collect(Collectors.toUnmodifiableList());
     }
 
     @Nonnull
@@ -1147,14 +1227,11 @@ public final class YoutubeParsingHelper {
                                                  final byte[] body,
                                                  final Localization localization)
             throws IOException, ExtractionException {
-        final Map<String, List<String>> headers = new HashMap<>();
-        addClientInfoHeaders(headers);
-        headers.put("Content-Type", singletonList("application/json"));
+        final var headers = getYouTubeHeaders();
 
-        final Response response = getDownloader().post(YOUTUBEI_V1_URL + endpoint + "?key="
-                + getKey() + DISABLE_PRETTY_PRINT_PARAMETER, headers, body, localization);
-
-        return JsonUtils.toJsonObject(getValidJsonResponseBody(response));
+        return JsonUtils.toJsonObject(getValidJsonResponseBody(
+                getDownloader().postWithContentTypeJson(YOUTUBEI_V1_URL + endpoint + "?key="
+                        + getKey() + DISABLE_PRETTY_PRINT_PARAMETER, headers, body, localization)));
     }
 
     public static JsonObject getJsonAndroidPostResponse(
@@ -1182,18 +1259,17 @@ public final class YoutubeParsingHelper {
             @Nonnull final String userAgent,
             @Nonnull final String innerTubeApiKey,
             @Nullable final String endPartOfUrlRequest) throws IOException, ExtractionException {
-        final Map<String, List<String>> headers = new HashMap<>();
-        headers.put("Content-Type", singletonList("application/json"));
-        headers.put("User-Agent", singletonList(userAgent));
-        headers.put("X-Goog-Api-Format-Version", singletonList("2"));
+        final var headers = Map.of("User-Agent", List.of(userAgent),
+                "X-Goog-Api-Format-Version", List.of("2"));
 
         final String baseEndpointUrl = YOUTUBEI_V1_GAPIS_URL + endpoint + "?key=" + innerTubeApiKey
                 + DISABLE_PRETTY_PRINT_PARAMETER;
 
-        final Response response = getDownloader().post(isNullOrEmpty(endPartOfUrlRequest)
-                        ? baseEndpointUrl : baseEndpointUrl + endPartOfUrlRequest,
-                headers, body, localization);
-        return JsonUtils.toJsonObject(getValidJsonResponseBody(response));
+        return JsonUtils.toJsonObject(getValidJsonResponseBody(
+                getDownloader().postWithContentTypeJson(isNullOrEmpty(endPartOfUrlRequest)
+                                ? baseEndpointUrl
+                                : baseEndpointUrl + endPartOfUrlRequest,
+                        headers, body, localization)));
     }
 
     @Nonnull
@@ -1201,8 +1277,17 @@ public final class YoutubeParsingHelper {
             @Nonnull final Localization localization,
             @Nonnull final ContentCountry contentCountry)
             throws IOException, ExtractionException {
+        return prepareDesktopJsonBuilder(localization, contentCountry, null);
+    }
+
+    @Nonnull
+    public static JsonBuilder<JsonObject> prepareDesktopJsonBuilder(
+            @Nonnull final Localization localization,
+            @Nonnull final ContentCountry contentCountry,
+            @Nullable final String visitorData)
+            throws IOException, ExtractionException {
         // @formatter:off
-        return JsonObject.builder()
+        final JsonBuilder<JsonObject> builder = JsonObject.builder()
                 .object("context")
                     .object("client")
                         .value("hl", localization.getLocalizationCode())
@@ -1211,15 +1296,21 @@ public final class YoutubeParsingHelper {
                         .value("clientVersion", getClientVersion())
                         .value("originalUrl", "https://www.youtube.com")
                         .value("platform", "DESKTOP")
-                    .end()
+                        .value("utcOffsetMinutes", 0);
+
+        if (visitorData != null) {
+            builder.value("visitorData", visitorData);
+        }
+
+        return builder.end()
                     .object("request")
                         .array("internalExperimentFlags")
                         .end()
                         .value("useSsl", true)
                     .end()
                     .object("user")
-                        // TO DO: provide a way to enable restricted mode with:
-                        // .value("enableSafetyMode", boolean)
+                        // TODO: provide a way to enable restricted mode with:
+                        //  .value("enableSafetyMode", boolean)
                         .value("lockedSafetyMode", false)
                     .end()
                 .end();
@@ -1238,25 +1329,31 @@ public final class YoutubeParsingHelper {
                         .value("clientVersion", ANDROID_YOUTUBE_CLIENT_VERSION)
                         .value("platform", "MOBILE")
                         .value("osName", "Android")
-                        .value("osVersion", "12")
+                        .value("osVersion", "14")
                         /*
                         A valid Android SDK version is required to be sure to get a valid player
                         response
-                        If this parameter is not provided, the player response may be replaced by
-                        the one of a 5-minute video saying the message "The following content is
-                        not available on this app. Watch this content on the latest version on
-                        YouTube"
+                        If this parameter is not provided, the player response is replaced by an
+                        error saying the message "The following content is not available on this
+                        app. Watch this content on the latest version on YouTube" (it was
+                        previously a 5-minute video with this message)
                         See https://github.com/TeamNewPipe/NewPipe/issues/8713
                         The Android SDK version corresponding to the Android version used in
                         requests is sent
                         */
-                        .value("androidSdkVersion", 31)
+                        .value("androidSdkVersion", 34)
                         .value("hl", localization.getLocalizationCode())
                         .value("gl", contentCountry.getCountryCode())
+                        .value("utcOffsetMinutes", 0)
+                    .end()
+                    .object("request")
+                        .array("internalExperimentFlags")
+                        .end()
+                        .value("useSsl", true)
                     .end()
                     .object("user")
-                        // TO DO: provide a way to enable restricted mode with:
-                        // .value("enableSafetyMode", boolean)
+                        // TODO: provide a way to enable restricted mode with:
+                        //  .value("enableSafetyMode", boolean)
                         .value("lockedSafetyMode", false)
                     .end()
                 .end();
@@ -1278,17 +1375,26 @@ public final class YoutubeParsingHelper {
                         .value("deviceModel", IOS_DEVICE_MODEL)
                         .value("platform", "MOBILE")
                         .value("osName", "iOS")
-                        // The value of this field seems to use the following structure:
-                        // "iOS version.0.build version"
-                        // The build version corresponding to the iOS version used can be found on
-                        // https://www.theiphonewiki.com/wiki/Firmware/iPhone/15.x#iPhone_13
-                        .value("osVersion", "15.6.0.19G71")
+                        /*
+                        The value of this field seems to use the following structure:
+                        "iOS major version.minor version.patch version.build version", where
+                        "patch version" is equal to 0 if it isn't set
+                        The build version corresponding to the iOS version used can be found on
+                        https://theapplewiki.com/wiki/Firmware/iPhone/17.x#iPhone_15
+                         */
+                        .value("osVersion", "17.1.2.21B101")
                         .value("hl", localization.getLocalizationCode())
                         .value("gl", contentCountry.getCountryCode())
+                        .value("utcOffsetMinutes", 0)
+                    .end()
+                    .object("request")
+                        .array("internalExperimentFlags")
+                        .end()
+                        .value("useSsl", true)
                     .end()
                     .object("user")
-                        // TO DO: provide a way to enable restricted mode with:
-                        // .value("enableSafetyMode", boolean)
+                        // TODO: provide a way to enable restricted mode with:
+                        //  .value("enableSafetyMode", boolean)
                         .value("lockedSafetyMode", false)
                     .end()
                 .end();
@@ -1310,13 +1416,19 @@ public final class YoutubeParsingHelper {
                         .value("platform", "TV")
                         .value("hl", localization.getLocalizationCode())
                         .value("gl", contentCountry.getCountryCode())
+                        .value("utcOffsetMinutes", 0)
                     .end()
                     .object("thirdParty")
                         .value("embedUrl", "https://www.youtube.com/watch?v=" + videoId)
                     .end()
+                    .object("request")
+                        .array("internalExperimentFlags")
+                        .end()
+                        .value("useSsl", true)
+                    .end()
                     .object("user")
-                        // TO DO: provide a way to enable restricted mode with:
-                        // .value("enableSafetyMode", boolean)
+                        // TODO: provide a way to enable restricted mode with:
+                        //  .value("enableSafetyMode", boolean)
                         .value("lockedSafetyMode", false)
                     .end()
                 .end();
@@ -1328,7 +1440,7 @@ public final class YoutubeParsingHelper {
             @Nonnull final Localization localization,
             @Nonnull final ContentCountry contentCountry,
             @Nonnull final String videoId,
-            @Nonnull final String sts,
+            @Nonnull final Integer sts,
             final boolean isTvHtml5DesktopJsonBuilder,
             @Nonnull final String contentPlaybackNonce) throws IOException, ExtractionException {
         // @formatter:off
@@ -1367,9 +1479,9 @@ public final class YoutubeParsingHelper {
      */
     @Nonnull
     public static String getAndroidUserAgent(@Nullable final Localization localization) {
-        // Spoofing an Android 12 device with the hardcoded version of the Android app
+        // Spoofing an Android 14 device with the hardcoded version of the Android app
         return "com.google.android.youtube/" + ANDROID_YOUTUBE_CLIENT_VERSION
-                + " (Linux; U; Android 12; "
+                + " (Linux; U; Android 14; "
                 + (localization != null ? localization : Localization.DEFAULT).getCountryCode()
                 + ") gzip";
     }
@@ -1389,37 +1501,67 @@ public final class YoutubeParsingHelper {
      */
     @Nonnull
     public static String getIosUserAgent(@Nullable final Localization localization) {
-        // Spoofing an iPhone 13 running iOS 15.6 with the hardcoded version of the iOS app
+        // Spoofing an iPhone 15 running iOS 17.1.2 with the hardcoded version of the iOS app
         return "com.google.ios.youtube/" + IOS_YOUTUBE_CLIENT_VERSION
-                + "(" + IOS_DEVICE_MODEL + "; U; CPU iOS 15_6 like Mac OS X; "
+                + "(" + IOS_DEVICE_MODEL + "; U; CPU iOS 17_1_2 like Mac OS X; "
                 + (localization != null ? localization : Localization.DEFAULT).getCountryCode()
                 + ")";
     }
 
     /**
-     * Add required headers and cookies to an existing headers Map.
-     * @see #addClientInfoHeaders(Map)
-     * @see #addCookieHeader(Map)
+     * Returns a {@link Map} containing the required YouTube Music headers.
      */
-    public static void addYouTubeHeaders(final Map<String, List<String>> headers)
-            throws IOException, ExtractionException {
-        addClientInfoHeaders(headers);
-        addCookieHeader(headers);
+    @Nonnull
+    public static Map<String, List<String>> getYoutubeMusicHeaders() {
+        final var headers = new HashMap<>(getOriginReferrerHeaders(YOUTUBE_MUSIC_URL));
+        headers.putAll(getClientHeaders(youtubeMusicKey[1], youtubeMusicKey[2]));
+        return headers;
     }
 
     /**
-     * Add the <code>X-YouTube-Client-Name</code>, <code>X-YouTube-Client-Version</code>,
-     * <code>Origin</code>, and <code>Referer</code> headers.
-     * @param headers The headers which should be completed
+     * Returns a {@link Map} containing the required YouTube headers, including the
+     * <code>CONSENT</code> cookie to prevent redirects to <code>consent.youtube.com</code>
      */
-    public static void addClientInfoHeaders(@Nonnull final Map<String, List<String>> headers)
-            throws IOException, ExtractionException {
-        headers.computeIfAbsent("Origin", k -> singletonList("https://www.youtube.com"));
-        headers.computeIfAbsent("Referer", k -> singletonList("https://www.youtube.com"));
-        headers.computeIfAbsent("X-YouTube-Client-Name", k -> singletonList("1"));
-        if (headers.get("X-YouTube-Client-Version") == null) {
-            headers.put("X-YouTube-Client-Version", singletonList(getClientVersion()));
-        }
+    public static Map<String, List<String>> getYouTubeHeaders()
+            throws ExtractionException, IOException {
+        final var headers = getClientInfoHeaders();
+        headers.put("Cookie", List.of(generateConsentCookie()));
+        return headers;
+    }
+
+    /**
+     * Returns a {@link Map} containing the {@code X-YouTube-Client-Name},
+     * {@code X-YouTube-Client-Version}, {@code Origin}, and {@code Referer} headers.
+     */
+    public static Map<String, List<String>> getClientInfoHeaders()
+            throws ExtractionException, IOException {
+        final var headers = new HashMap<>(getOriginReferrerHeaders("https://www.youtube.com"));
+        headers.putAll(getClientHeaders("1", getClientVersion()));
+        return headers;
+    }
+
+    /**
+     * Returns an unmodifiable {@link Map} containing the {@code Origin} and {@code Referer}
+     * headers set to the given URL.
+     *
+     * @param url The URL to be set as the origin and referrer.
+     */
+    private static Map<String, List<String>> getOriginReferrerHeaders(@Nonnull final String url) {
+        final var urlList = List.of(url);
+        return Map.of("Origin", urlList, "Referer", urlList);
+    }
+
+    /**
+     * Returns an unmodifiable {@link Map} containing the {@code X-YouTube-Client-Name} and
+     * {@code X-YouTube-Client-Version} headers.
+     *
+     * @param name The X-YouTube-Client-Name value.
+     * @param version X-YouTube-Client-Version value.
+     */
+    private static Map<String, List<String>> getClientHeaders(@Nonnull final String name,
+                                                              @Nonnull final String version) {
+        return Map.of("X-YouTube-Client-Name", List.of(name),
+                "X-YouTube-Client-Version", List.of(version));
     }
 
     /**
@@ -1427,30 +1569,20 @@ public final class YoutubeParsingHelper {
      * @return A singleton map containing the header.
      */
     public static Map<String, List<String>> getCookieHeader() {
-        return Collections.singletonMap("Cookie", singletonList(generateConsentCookie()));
-    }
-
-    /**
-     * Add the <code>CONSENT</code> cookie to prevent redirect to <code>consent.youtube.com</code>
-     * @param headers the headers which should be completed
-     */
-    public static void addCookieHeader(@Nonnull final Map<String, List<String>> headers) {
-        if (headers.get("Cookie") == null) {
-            headers.put("Cookie", Collections.singletonList(generateConsentCookie()));
-        } else {
-            headers.get("Cookie").add(generateConsentCookie());
-        }
+        return Map.of("Cookie", List.of(generateConsentCookie()));
     }
 
     @Nonnull
     public static String generateConsentCookie() {
-        return "CONSENT=" + (isConsentAccepted()
-                // YES+ means that the user did submit their choices and allows tracking.
-                ? "YES+"
-                // PENDING+ means that the user did not yet submit their choices.
-                // YT & Google should not track the user, because they did not give consent.
-                // The three digits at the end can be random, but are required.
-                : "PENDING+" + (100 + numberGenerator.nextInt(900)));
+        return "SOCS=" + (isConsentAccepted()
+                // CAISAiAD means that the user configured manually cookies YouTube, regardless of
+                // the consent values
+                // This value surprisingly allows to extract mixes and some YouTube Music playlists
+                // in the same way when a user allows all cookies
+                ? "CAISAiAD"
+                // CAE= means that the user rejected all non-necessary cookies with the "Reject
+                // all" button on the consent page
+                : "CAE=");
     }
 
     public static String extractCookieValue(final String cookieName,
@@ -1520,120 +1652,6 @@ public final class YoutubeParsingHelper {
                 throw new ContentNotAvailableException("Got error: \"" + alertText + "\"");
             }
         }
-    }
-
-    @Nonnull
-    public static List<MetaInfo> getMetaInfo(@Nonnull final JsonArray contents)
-            throws ParsingException {
-        final List<MetaInfo> metaInfo = new ArrayList<>();
-        for (final Object content : contents) {
-            final JsonObject resultObject = (JsonObject) content;
-            if (resultObject.has("itemSectionRenderer")) {
-                for (final Object sectionContentObject
-                        : resultObject.getObject("itemSectionRenderer").getArray("contents")) {
-
-                    final JsonObject sectionContent = (JsonObject) sectionContentObject;
-                    if (sectionContent.has("infoPanelContentRenderer")) {
-                        metaInfo.add(getInfoPanelContent(sectionContent
-                                .getObject("infoPanelContentRenderer")));
-                    }
-                    if (sectionContent.has("clarificationRenderer")) {
-                        metaInfo.add(getClarificationRendererContent(sectionContent
-                                .getObject("clarificationRenderer")
-                        ));
-                    }
-
-                }
-            }
-        }
-        return metaInfo;
-    }
-
-    @Nonnull
-    private static MetaInfo getInfoPanelContent(@Nonnull final JsonObject infoPanelContentRenderer)
-            throws ParsingException {
-        final MetaInfo metaInfo = new MetaInfo();
-        final StringBuilder sb = new StringBuilder();
-        for (final Object paragraph : infoPanelContentRenderer.getArray("paragraphs")) {
-            if (sb.length() != 0) {
-                sb.append("<br>");
-            }
-            sb.append(YoutubeParsingHelper.getTextFromObject((JsonObject) paragraph));
-        }
-        metaInfo.setContent(new Description(sb.toString(), Description.HTML));
-        if (infoPanelContentRenderer.has("sourceEndpoint")) {
-            final String metaInfoLinkUrl = YoutubeParsingHelper.getUrlFromNavigationEndpoint(
-                    infoPanelContentRenderer.getObject("sourceEndpoint"));
-            try {
-                metaInfo.addUrl(new URL(Objects.requireNonNull(extractCachedUrlIfNeeded(
-                        metaInfoLinkUrl))));
-            } catch (final NullPointerException | MalformedURLException e) {
-                throw new ParsingException("Could not get metadata info URL", e);
-            }
-
-            final String metaInfoLinkText = YoutubeParsingHelper.getTextFromObject(
-                    infoPanelContentRenderer.getObject("inlineSource"));
-            if (isNullOrEmpty(metaInfoLinkText)) {
-                throw new ParsingException("Could not get metadata info link text.");
-            }
-            metaInfo.addUrlText(metaInfoLinkText);
-        }
-
-        return metaInfo;
-    }
-
-    @Nonnull
-    private static MetaInfo getClarificationRendererContent(
-            @Nonnull final JsonObject clarificationRenderer) throws ParsingException {
-        final MetaInfo metaInfo = new MetaInfo();
-
-        final String title = YoutubeParsingHelper.getTextFromObject(clarificationRenderer
-                .getObject("contentTitle"));
-        final String text = YoutubeParsingHelper.getTextFromObject(clarificationRenderer
-                .getObject("text"));
-        if (title == null || text == null) {
-            throw new ParsingException("Could not extract clarification renderer content");
-        }
-        metaInfo.setTitle(title);
-        metaInfo.setContent(new Description(text, Description.PLAIN_TEXT));
-
-        if (clarificationRenderer.has("actionButton")) {
-            final JsonObject actionButton = clarificationRenderer.getObject("actionButton")
-                    .getObject("buttonRenderer");
-            try {
-                final String url = YoutubeParsingHelper.getUrlFromNavigationEndpoint(actionButton
-                        .getObject("command"));
-                metaInfo.addUrl(new URL(Objects.requireNonNull(extractCachedUrlIfNeeded(url))));
-            } catch (final NullPointerException | MalformedURLException e) {
-                throw new ParsingException("Could not get metadata info URL", e);
-            }
-
-            final String metaInfoLinkText = YoutubeParsingHelper.getTextFromObject(
-                    actionButton.getObject("text"));
-            if (isNullOrEmpty(metaInfoLinkText)) {
-                throw new ParsingException("Could not get metadata info link text.");
-            }
-            metaInfo.addUrlText(metaInfoLinkText);
-        }
-
-        if (clarificationRenderer.has("secondaryEndpoint") && clarificationRenderer
-                .has("secondarySource")) {
-            final String url = getUrlFromNavigationEndpoint(clarificationRenderer
-                    .getObject("secondaryEndpoint"));
-            // Ignore Google URLs, because those point to a Google search about "Covid-19"
-            if (url != null && !isGoogleURL(url)) {
-                try {
-                    metaInfo.addUrl(new URL(url));
-                    final String description = getTextFromObject(clarificationRenderer
-                            .getObject("secondarySource"));
-                    metaInfo.addUrlText(description == null ? url : description);
-                } catch (final MalformedURLException e) {
-                    throw new ParsingException("Could not get metadata info secondary URL", e);
-                }
-            }
-        }
-
-        return metaInfo;
     }
 
     /**
@@ -1742,16 +1760,75 @@ public final class YoutubeParsingHelper {
     }
 
     /**
-     * @see #consentAccepted
+     * Determines how the consent cookie that is required for YouTube, {@code SOCS}, will be
+     * generated.
+     *
+     * <ul>
+     *   <li>{@code false} (the default value) will use {@code CAE=};</li>
+     *   <li>{@code true} will use {@code CAISAiAD}.</li>
+     * </ul>
+     *
+     * <p>
+     * Setting this value to {@code true} is needed to extract mixes and some YouTube Music
+     * playlists in some countries such as the EU ones.
+     * </p>
      */
     public static void setConsentAccepted(final boolean accepted) {
         consentAccepted = accepted;
     }
 
     /**
-     * @see #consentAccepted
+     * Get the value of the consent's acceptance.
+     *
+     * @see #setConsentAccepted(boolean)
+     * @return the consent's acceptance value
      */
     public static boolean isConsentAccepted() {
         return consentAccepted;
+    }
+
+    /**
+     * Extract the audio track type from a YouTube stream URL.
+     * <p>
+     * The track type is parsed from the {@code xtags} URL parameter
+     * (Example: {@code acont=original:lang=en}).
+     * </p>
+     * @param streamUrl YouTube stream URL
+     * @return {@link AudioTrackType} or {@code null} if no track type was found
+     */
+    @Nullable
+    public static AudioTrackType extractAudioTrackType(final String streamUrl) {
+        final String xtags;
+        try {
+            xtags = Utils.getQueryValue(new URL(streamUrl), "xtags");
+        } catch (final MalformedURLException e) {
+            return null;
+        }
+        if (xtags == null) {
+            return null;
+        }
+
+        String atype = null;
+        for (final String param : xtags.split(":")) {
+            final String[] kv = param.split("=", 2);
+            if (kv.length > 1 && kv[0].equals("acont")) {
+                atype = kv[1];
+                break;
+            }
+        }
+        if (atype == null) {
+            return null;
+        }
+
+        switch (atype) {
+            case "original":
+                return AudioTrackType.ORIGINAL;
+            case "dubbed":
+                return AudioTrackType.DUBBED;
+            case "descriptive":
+                return AudioTrackType.DESCRIPTIVE;
+            default:
+                return null;
+        }
     }
 }

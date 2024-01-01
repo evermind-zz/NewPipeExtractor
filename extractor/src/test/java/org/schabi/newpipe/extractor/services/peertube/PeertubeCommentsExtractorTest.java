@@ -14,11 +14,11 @@ import org.schabi.newpipe.extractor.utils.Utils;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.schabi.newpipe.extractor.ServiceList.PeerTube;
+import static org.schabi.newpipe.extractor.services.DefaultTests.defaultTestImageCollection;
 
 public class PeertubeCommentsExtractorTest {
     public static class Default {
@@ -48,7 +48,7 @@ public class PeertubeCommentsExtractorTest {
 
         @Test
         void testGetCommentsFromCommentsInfo() throws IOException, ExtractionException {
-            final String comment = "great video";
+            final String comment = "Thanks for creating such an informative video";
 
             final CommentsInfo commentsInfo =
                     CommentsInfo.getInfo("https://framatube.org/w/kkGMgK9ZtnKfYAgnEtQxbv");
@@ -69,33 +69,33 @@ public class PeertubeCommentsExtractorTest {
 
         @Test
         void testGetCommentsAllData() throws IOException, ExtractionException {
-            InfoItemsPage<CommentsInfoItem> comments = extractor.getInitialPage();
-            for (CommentsInfoItem c : comments.getItems()) {
-                assertFalse(Utils.isBlank(c.getUploaderUrl()));
-                assertFalse(Utils.isBlank(c.getUploaderName()));
-                assertFalse(Utils.isBlank(c.getUploaderAvatarUrl()));
-                assertFalse(Utils.isBlank(c.getCommentId()));
-                assertFalse(Utils.isBlank(c.getCommentText()));
-                assertFalse(Utils.isBlank(c.getName()));
-                assertFalse(Utils.isBlank(c.getTextualUploadDate()));
-                assertFalse(Utils.isBlank(c.getThumbnailUrl()));
-                assertFalse(Utils.isBlank(c.getUrl()));
-                assertEquals(-1, c.getLikeCount());
-                assertTrue(Utils.isBlank(c.getTextualLikeCount()));
-            }
+            extractor.getInitialPage()
+                    .getItems()
+                    .forEach(commentsInfoItem -> {
+                        assertFalse(Utils.isBlank(commentsInfoItem.getUploaderUrl()));
+                        assertFalse(Utils.isBlank(commentsInfoItem.getUploaderName()));
+                        defaultTestImageCollection(commentsInfoItem.getUploaderAvatars());
+                        assertFalse(Utils.isBlank(commentsInfoItem.getCommentId()));
+                        assertFalse(Utils.isBlank(commentsInfoItem.getCommentText().getContent()));
+                        assertFalse(Utils.isBlank(commentsInfoItem.getName()));
+                        assertFalse(Utils.isBlank(commentsInfoItem.getTextualUploadDate()));
+                        defaultTestImageCollection(commentsInfoItem.getThumbnails());
+                        assertFalse(Utils.isBlank(commentsInfoItem.getUrl()));
+                        assertEquals(-1, commentsInfoItem.getLikeCount());
+                        assertTrue(Utils.isBlank(commentsInfoItem.getTextualLikeCount()));
+                    });
         }
 
-        private boolean findInComments(InfoItemsPage<CommentsInfoItem> comments, String comment) {
+        private boolean findInComments(final InfoItemsPage<CommentsInfoItem> comments,
+                                       final String comment) {
             return findInComments(comments.getItems(), comment);
         }
 
-        private boolean findInComments(List<CommentsInfoItem> comments, String comment) {
-            for (CommentsInfoItem c : comments) {
-                if (c.getCommentText().contains(comment)) {
-                    return true;
-                }
-            }
-            return false;
+        private boolean findInComments(final List<CommentsInfoItem> comments,
+                                       final String comment) {
+            return comments.stream()
+                    .anyMatch(commentsInfoItem ->
+                            commentsInfoItem.getCommentText().getContent().contains(comment));
         }
     }
 
@@ -120,5 +120,73 @@ public class PeertubeCommentsExtractorTest {
             final CommentsInfo commentsInfo = CommentsInfo.getInfo("https://framatube.org/videos/watch/217eefeb-883d-45be-b7fc-a788ad8507d3");
             assertTrue(commentsInfo.getErrors().isEmpty());
         }
+    }
+
+    /**
+     * Test a video that has comments with nested replies.
+     */
+    public static class NestedComments {
+        private static PeertubeCommentsExtractor extractor;
+        private static InfoItemsPage<CommentsInfoItem> comments = null;
+
+        @BeforeAll
+        public static void setUp() throws Exception {
+            NewPipe.init(DownloaderTestImpl.getInstance());
+            extractor = (PeertubeCommentsExtractor) PeerTube
+                    .getCommentsExtractor("https://share.tube/w/vxu4uTstUBAUromWwXGHrq");
+            comments = extractor.getInitialPage();
+        }
+
+        @Test
+        void testGetComments() throws IOException, ExtractionException {
+            assertFalse(comments.getItems().isEmpty());
+            final Optional<CommentsInfoItem> nestedCommentHeadOpt =
+                    findCommentWithId("9770", comments.getItems());
+            assertTrue(nestedCommentHeadOpt.isPresent());
+            assertTrue(findNestedCommentWithId("9773", nestedCommentHeadOpt.get()), "The nested comment replies were not found");
+        }
+
+        @Test
+        void testHasCreatorReply() {
+            assertCreatorReply("9770", true);
+            assertCreatorReply("9852", false);
+            assertCreatorReply("11239", false);
+        }
+
+        private static void assertCreatorReply(final String id, final boolean expected) {
+            final Optional<CommentsInfoItem> comment =
+                    findCommentWithId(id, comments.getItems());
+            assertTrue(comment.isPresent());
+            assertEquals(expected, comment.get().hasCreatorReply());
+        }
+    }
+
+    private static Optional<CommentsInfoItem> findCommentWithId(
+            final String id, final List<CommentsInfoItem> comments) {
+        return comments
+                .stream()
+                .filter(c -> c.getCommentId().equals(id))
+                .findFirst();
+    }
+
+    private static boolean findNestedCommentWithId(final String id, final CommentsInfoItem comment)
+            throws IOException, ExtractionException {
+        if (comment.getCommentId().equals(id)) {
+            return true;
+        }
+        return PeerTube
+                .getCommentsExtractor(comment.getUrl())
+                .getPage(comment.getReplies())
+                .getItems()
+                .stream()
+                .map(c -> {
+                    try {
+                        return findNestedCommentWithId(id, c);
+                    } catch (final Exception ignored) {
+                        return false;
+                    }
+                })
+                .reduce((a, b) -> a || b)
+                .orElse(false);
     }
 }

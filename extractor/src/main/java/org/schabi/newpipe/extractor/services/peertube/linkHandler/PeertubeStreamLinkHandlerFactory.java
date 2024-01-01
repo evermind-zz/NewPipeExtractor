@@ -6,6 +6,9 @@ import org.schabi.newpipe.extractor.exceptions.ParsingException;
 import org.schabi.newpipe.extractor.linkhandler.LinkHandlerFactory;
 import org.schabi.newpipe.extractor.utils.Parser;
 
+import java.net.MalformedURLException;
+import java.net.URL;
+
 public final class PeertubeStreamLinkHandlerFactory extends LinkHandlerFactory {
 
     private static final PeertubeStreamLinkHandlerFactory INSTANCE
@@ -27,7 +30,7 @@ public final class PeertubeStreamLinkHandlerFactory extends LinkHandlerFactory {
     }
 
     @Override
-    public String getUrl(final String id) {
+    public String getUrl(final String id) throws ParsingException, UnsupportedOperationException {
         return getUrl(id, ServiceList.PeerTube.getBaseUrl());
     }
 
@@ -37,7 +40,7 @@ public final class PeertubeStreamLinkHandlerFactory extends LinkHandlerFactory {
     }
 
     @Override
-    public String getId(final String url) throws ParsingException, IllegalArgumentException {
+    public String getId(final String url) throws ParsingException, UnsupportedOperationException {
         return Parser.matchGroup(ID_PATTERN, url, 4);
     }
 
@@ -47,9 +50,10 @@ public final class PeertubeStreamLinkHandlerFactory extends LinkHandlerFactory {
             return false;
         }
         try {
+            new URL(url);
             getId(url);
             return true;
-        } catch (final ParsingException e) {
+        } catch (final ParsingException | MalformedURLException e) {
             return false;
         }
     }

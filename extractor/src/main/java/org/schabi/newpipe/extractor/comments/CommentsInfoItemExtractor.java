@@ -1,13 +1,17 @@
 package org.schabi.newpipe.extractor.comments;
 
+import org.schabi.newpipe.extractor.Image;
 import org.schabi.newpipe.extractor.InfoItemExtractor;
 import org.schabi.newpipe.extractor.Page;
 import org.schabi.newpipe.extractor.exceptions.ParsingException;
 import org.schabi.newpipe.extractor.localization.DateWrapper;
 import org.schabi.newpipe.extractor.services.youtube.extractors.YoutubeCommentsInfoItemExtractor;
+import org.schabi.newpipe.extractor.stream.Description;
 import org.schabi.newpipe.extractor.stream.StreamExtractor;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 
 public interface CommentsInfoItemExtractor extends InfoItemExtractor {
 
@@ -41,8 +45,8 @@ public interface CommentsInfoItemExtractor extends InfoItemExtractor {
     /**
      * The text of the comment
      */
-    default String getCommentText() throws ParsingException {
-        return "";
+    default Description getCommentText() throws ParsingException {
+        return Description.EMPTY_DESCRIPTION;
     }
 
     /**
@@ -76,8 +80,9 @@ public interface CommentsInfoItemExtractor extends InfoItemExtractor {
         return "";
     }
 
-    default String getUploaderAvatarUrl() throws ParsingException {
-        return "";
+    @Nonnull
+    default List<Image> getUploaderAvatars() throws ParsingException {
+        return List.of();
     }
 
     /**
@@ -128,5 +133,19 @@ public interface CommentsInfoItemExtractor extends InfoItemExtractor {
     @Nullable
     default Page getReplies() throws ParsingException {
         return null;
+    }
+
+    /**
+     * Whether the comment was made by the channel owner.
+     */
+    default boolean isChannelOwner() throws ParsingException {
+        return false;
+    }
+
+    /**
+     * Whether the comment was replied to by the creator.
+     */
+    default boolean hasCreatorReply() throws ParsingException {
+        return false;
     }
 }

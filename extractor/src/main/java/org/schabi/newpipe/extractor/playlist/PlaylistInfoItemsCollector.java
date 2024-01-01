@@ -32,12 +32,17 @@ public class PlaylistInfoItemsCollector
             addError(e);
         }
         try {
-            resultItem.setThumbnailUrl(extractor.getThumbnailUrl());
+            resultItem.setThumbnails(extractor.getThumbnails());
         } catch (final Exception e) {
             addError(e);
         }
         try {
             resultItem.setStreamCount(extractor.getStreamCount());
+        } catch (final Exception e) {
+            addError(e);
+        }
+        try {
+            resultItem.setDescription(extractor.getDescription());
         } catch (final Exception e) {
             addError(e);
         }

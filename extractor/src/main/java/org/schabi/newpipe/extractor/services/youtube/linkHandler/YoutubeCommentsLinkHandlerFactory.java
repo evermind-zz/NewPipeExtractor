@@ -1,10 +1,15 @@
 package org.schabi.newpipe.extractor.services.youtube.linkHandler;
 
+import org.schabi.newpipe.extractor.search.filter.FilterItem;
+
 import org.schabi.newpipe.extractor.exceptions.FoundAdException;
 import org.schabi.newpipe.extractor.exceptions.ParsingException;
 import org.schabi.newpipe.extractor.linkhandler.ListLinkHandlerFactory;
 
 import java.util.List;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public final class YoutubeCommentsLinkHandlerFactory extends ListLinkHandlerFactory {
 
@@ -19,13 +24,14 @@ public final class YoutubeCommentsLinkHandlerFactory extends ListLinkHandlerFact
     }
 
     @Override
-    public String getUrl(final String id) {
+    public String getUrl(final String id) throws ParsingException, UnsupportedOperationException {
         return "https://www.youtube.com/watch?v=" + id;
     }
 
     @Override
-    public String getId(final String urlString) throws ParsingException, IllegalArgumentException {
-        // we need the same id, avoids duplicate code
+    public String getId(final String urlString)
+            throws ParsingException, UnsupportedOperationException {
+        // We need the same id, avoids duplicate code
         return YoutubeStreamLinkHandlerFactory.getInstance().getId(urlString);
     }
 
@@ -43,8 +49,9 @@ public final class YoutubeCommentsLinkHandlerFactory extends ListLinkHandlerFact
 
     @Override
     public String getUrl(final String id,
-                         final List<String> contentFilter,
-                         final String sortFilter) throws ParsingException {
+                         @Nonnull final List<FilterItem> contentFilter,
+                         @Nullable final List<FilterItem> sortFilter)
+            throws ParsingException, UnsupportedOperationException {
         return getUrl(id);
     }
 }

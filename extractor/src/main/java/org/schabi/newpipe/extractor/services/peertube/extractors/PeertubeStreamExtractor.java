@@ -1,5 +1,7 @@
 package org.schabi.newpipe.extractor.services.peertube.extractors;
 
+import static org.schabi.newpipe.extractor.services.peertube.PeertubeParsingHelper.getAvatarsFromOwnerAccountOrVideoChannelObject;
+import static org.schabi.newpipe.extractor.services.peertube.PeertubeParsingHelper.getThumbnailsFromPlaylistOrVideoItem;
 import static org.schabi.newpipe.extractor.stream.AudioStream.UNKNOWN_BITRATE;
 import static org.schabi.newpipe.extractor.utils.Utils.isNullOrEmpty;
 
@@ -7,7 +9,7 @@ import com.grack.nanojson.JsonArray;
 import com.grack.nanojson.JsonObject;
 import com.grack.nanojson.JsonParser;
 import com.grack.nanojson.JsonParserException;
-
+import org.schabi.newpipe.extractor.Image;
 import org.schabi.newpipe.extractor.MediaFormat;
 import org.schabi.newpipe.extractor.NewPipe;
 import org.schabi.newpipe.extractor.StreamingService;
@@ -61,6 +63,8 @@ public class PeertubeStreamExtractor extends StreamExtractor {
     private final List<AudioStream> audioStreams = new ArrayList<>();
     private final List<VideoStream> videoStreams = new ArrayList<>();
 
+    private ParsingException subtitlesException = null;
+
     public PeertubeStreamExtractor(final StreamingService service, final LinkHandler linkHandler)
             throws ParsingException {
         super(service, linkHandler);
@@ -85,8 +89,8 @@ public class PeertubeStreamExtractor extends StreamExtractor {
 
     @Nonnull
     @Override
-    public String getThumbnailUrl() throws ParsingException {
-        return baseUrl + JsonUtils.getString(json, "previewPath");
+    public List<Image> getThumbnails() throws ParsingException {
+        return getThumbnailsFromPlaylistOrVideoItem(baseUrl, json);
     }
 
     @Nonnull
@@ -174,14 +178,8 @@ public class PeertubeStreamExtractor extends StreamExtractor {
 
     @Nonnull
     @Override
-    public String getUploaderAvatarUrl() {
-        String value;
-        try {
-            value = JsonUtils.getString(json, "account.avatar.path");
-        } catch (final Exception e) {
-            value = "/client/assets/images/default-avatar.png";
-        }
-        return baseUrl + value;
+    public List<Image> getUploaderAvatars() {
+        return getAvatarsFromOwnerAccountOrVideoChannelObject(baseUrl, json.getObject("account"));
     }
 
     @Nonnull
@@ -198,14 +196,8 @@ public class PeertubeStreamExtractor extends StreamExtractor {
 
     @Nonnull
     @Override
-    public String getSubChannelAvatarUrl() {
-        String value;
-        try {
-            value = JsonUtils.getString(json, "channel.avatar.path");
-        } catch (final Exception e) {
-            value = "/client/assets/images/default-avatar.png";
-        }
-        return baseUrl + value;
+    public List<Image> getSubChannelAvatars() {
+        return getAvatarsFromOwnerAccountOrVideoChannelObject(baseUrl, json.getObject("channel"));
     }
 
     @Nonnull
@@ -262,13 +254,19 @@ public class PeertubeStreamExtractor extends StreamExtractor {
 
     @Nonnull
     @Override
-    public List<SubtitlesStream> getSubtitlesDefault() {
+    public List<SubtitlesStream> getSubtitlesDefault() throws ParsingException {
+        if (subtitlesException != null) {
+            throw subtitlesException;
+        }
         return subtitles;
     }
 
     @Nonnull
     @Override
-    public List<SubtitlesStream> getSubtitles(final MediaFormat format) {
+    public List<SubtitlesStream> getSubtitles(final MediaFormat format) throws ParsingException {
+        if (subtitlesException != null) {
+            throw subtitlesException;
+        }
         return subtitles.stream()
                 .filter(sub -> sub.getFormat() == format)
                 .collect(Collectors.toList());
@@ -321,7 +319,7 @@ public class PeertubeStreamExtractor extends StreamExtractor {
     @Nonnull
     private String getRelatedItemsUrl(@Nonnull final List<String> tags)
             throws UnsupportedEncodingException {
-        final String url = baseUrl + PeertubeSearchQueryHandlerFactory.SEARCH_ENDPOINT;
+        final String url = baseUrl + PeertubeSearchQueryHandlerFactory.SEARCH_ENDPOINT_VIDEOS;
         final StringBuilder params = new StringBuilder();
         params.append("start=0&count=8&sort=-createdAt");
         for (final String tag : tags) {
@@ -420,8 +418,8 @@ public class PeertubeStreamExtractor extends StreamExtractor {
                         }
                     }
                 }
-            } catch (final Exception ignored) {
-                // Ignore all exceptions
+            } catch (final Exception e) {
+                subtitlesException = new ParsingException("Could not get subtitles", e);
             }
         }
     }

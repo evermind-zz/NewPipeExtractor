@@ -40,7 +40,7 @@ public class YoutubeStreamExtractorLivestreamTest extends DefaultStreamExtractor
 
     @Override public StreamExtractor extractor() { return extractor; }
     @Override public StreamingService expectedService() { return YouTube; }
-    @Override public String expectedName() { return "lofi hip hop radio - beats to relax/study to"; }
+    @Override public String expectedName() { return "lofi hip hop radio \uD83D\uDCDA - beats to relax/study to"; }
     @Override public String expectedId() { return ID; }
     @Override public String expectedUrlContains() { return YoutubeStreamExtractorDefaultTest.BASE_URL + ID; }
     @Override public String expectedOriginalUrlContains() { return URL; }
@@ -57,8 +57,8 @@ public class YoutubeStreamExtractorLivestreamTest extends DefaultStreamExtractor
     @Override public long expectedLength() { return 0; }
     @Override public long expectedTimestamp() { return TIMESTAMP; }
     @Override public long expectedViewCountAtLeast() { return 0; }
-    @Nullable @Override public String expectedUploadDate() { return "2022-07-12 00:00:00.000"; }
-    @Nullable @Override public String expectedTextualUploadDate() { return "2022-07-12"; }
+    @Nullable @Override public String expectedUploadDate() { return "2022-07-12 12:12:29.000"; }
+    @Nullable @Override public String expectedTextualUploadDate() { return "2022-07-12T05:12:29-07:00"; }
     @Override public long expectedLikeCountAtLeast() { return 340_000; }
     @Override public long expectedDislikeCountAtLeast() { return -1; }
     @Override public boolean expectedHasSubtitles() { return false; }

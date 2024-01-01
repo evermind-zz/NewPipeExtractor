@@ -1,7 +1,7 @@
 /*
  * Created by Christian Schabesberger on 30.12.15.
  *
- * Copyright (C) Christian Schabesberger 2015 <chris.schabesberger@mailbox.org>
+ * Copyright (C) 2015 Christian Schabesberger <chris.schabesberger@mailbox.org>
  * YoutubeVideoExtractorDefault.java is part of NewPipe Extractor.
  *
  * NewPipe Extractor is free software: you can redistribute it and/or modify
@@ -21,6 +21,7 @@
 package org.schabi.newpipe.extractor.services.youtube.stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -44,6 +45,7 @@ import org.schabi.newpipe.extractor.services.DefaultStreamExtractorTest;
 import org.schabi.newpipe.extractor.services.youtube.YoutubeTestsUtils;
 import org.schabi.newpipe.extractor.services.youtube.extractors.YoutubeStreamExtractor;
 import org.schabi.newpipe.extractor.stream.AudioStream;
+import org.schabi.newpipe.extractor.stream.AudioTrackType;
 import org.schabi.newpipe.extractor.stream.Description;
 import org.schabi.newpipe.extractor.stream.StreamExtractor;
 import org.schabi.newpipe.extractor.stream.StreamSegment;
@@ -55,6 +57,8 @@ import java.net.URL;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
 
 import javax.annotation.Nullable;
 
@@ -147,8 +151,8 @@ public class YoutubeStreamExtractorDefaultTest {
         @Override public long expectedLength() { return 381; }
         @Override public long expectedTimestamp() { return TIMESTAMP; }
         @Override public long expectedViewCountAtLeast() { return 26682500; }
-        @Nullable @Override public String expectedUploadDate() { return "2019-08-24 00:00:00.000"; }
-        @Nullable @Override public String expectedTextualUploadDate() { return "2019-08-24"; }
+        @Nullable @Override public String expectedUploadDate() { return "2019-08-24 15:39:57.000"; }
+        @Nullable @Override public String expectedTextualUploadDate() { return "2019-08-24T08:39:57-07:00"; }
         @Override public long expectedLikeCountAtLeast() { return 5212900; }
         @Override public long expectedDislikeCountAtLeast() { return -1; }
         @Override public int expectedStreamSegmentsCount() { return 0; }
@@ -183,15 +187,15 @@ public class YoutubeStreamExtractorDefaultTest {
         @Override public String expectedUploaderUrl() { return "https://www.youtube.com/channel/UCsTcErHg8oDvUnTzoqsYeNw"; }
         @Override public long expectedUploaderSubscriberCountAtLeast() { return 18_000_000; }
         @Override public List<String> expectedDescriptionContains() {
-            return Arrays.asList("https://www.youtube.com/watch?v=X7FLCHVXpsA&list=PL7u4lWXQ3wfI_7PgX0C-VTiwLeu0S4v34",
-                    "https://www.youtube.com/watch?v=Lqv6G0pDNnw&list=PL7u4lWXQ3wfI_7PgX0C-VTiwLeu0S4v34",
-                    "https://www.youtube.com/watch?v=XxaRBPyrnBU&list=PL7u4lWXQ3wfI_7PgX0C-VTiwLeu0S4v34",
-                    "https://www.youtube.com/watch?v=U-9tUEOFKNU&list=PL7u4lWXQ3wfI_7PgX0C-VTiwLeu0S4v34");
+            return Arrays.asList("https://www.youtube.com/watch?v=X7FLCHVXpsA&amp;list=PL7u4lWXQ3wfI_7PgX0C-VTiwLeu0S4v34",
+                    "https://www.youtube.com/watch?v=Lqv6G0pDNnw&amp;list=PL7u4lWXQ3wfI_7PgX0C-VTiwLeu0S4v34",
+                    "https://www.youtube.com/watch?v=XxaRBPyrnBU&amp;list=PL7u4lWXQ3wfI_7PgX0C-VTiwLeu0S4v34",
+                    "https://www.youtube.com/watch?v=U-9tUEOFKNU&amp;list=PL7u4lWXQ3wfI_7PgX0C-VTiwLeu0S4v34");
         }
         @Override public long expectedLength() { return 434; }
         @Override public long expectedViewCountAtLeast() { return 21229200; }
-        @Nullable @Override public String expectedUploadDate() { return "2018-06-19 00:00:00.000"; }
-        @Nullable @Override public String expectedTextualUploadDate() { return "2018-06-19"; }
+        @Nullable @Override public String expectedUploadDate() { return "2018-06-19 19:41:34.000"; }
+        @Nullable @Override public String expectedTextualUploadDate() { return "2018-06-19T12:41:34-07:00"; }
         @Override public long expectedLikeCountAtLeast() { return 340100; }
         @Override public long expectedDislikeCountAtLeast() { return -1; }
         @Override public boolean expectedUploaderVerified() { return true; }
@@ -208,9 +212,8 @@ public class YoutubeStreamExtractorDefaultTest {
         // @formatter:on
     }
 
-    @Disabled("Test broken, video was made private")
     public static class RatingsDisabledTest extends DefaultStreamExtractorTest {
-        private static final String ID = "HRKu0cvrr_o";
+        private static final String ID = "it3OtbTxQk0";
         private static final int TIMESTAMP = 17;
         private static final String URL = BASE_URL + ID + "&t=" + TIMESTAMP;
         private static StreamExtractor extractor;
@@ -226,22 +229,25 @@ public class YoutubeStreamExtractorDefaultTest {
         // @formatter:off
         @Override public StreamExtractor extractor() { return extractor; }
         @Override public StreamingService expectedService() { return YouTube; }
-        @Override public String expectedName() { return "AlphaOmegaSin Fanboy Logic: Likes/Dislikes Disabled = Point Invalid Lol wtf?"; }
+        @Override public String expectedName() { return "Introduction to Doodle for Google 2023"; }
         @Override public String expectedId() { return ID; }
         @Override public String expectedUrlContains() { return BASE_URL + ID; }
         @Override public String expectedOriginalUrlContains() { return URL; }
 
         @Override public StreamType expectedStreamType() { return StreamType.VIDEO_STREAM; }
-        @Override public String expectedUploaderName() { return "YouTuber PrinceOfFALLEN"; }
-        @Override public String expectedUploaderUrl() { return "https://www.youtube.com/channel/UCQT2yul0lr6Ie9qNQNmw-sg"; }
-        @Override public List<String> expectedDescriptionContains() { return Arrays.asList("dislikes", "Alpha", "wrong"); }
-        @Override public long expectedLength() { return 84; }
+        @Override public String expectedUploaderName() { return "GoogleDoodles"; }
+        @Override public String expectedUploaderUrl() { return "https://www.youtube.com/channel/UCdq61m8s_48EhJ5OM_MCeGw"; }
+        @Override public long expectedUploaderSubscriberCountAtLeast() { return 2270000; }
+        @Override public List<String> expectedDescriptionContains() { return Arrays.asList("Doodle", "Google", "video"); }
+        @Override public long expectedLength() { return 145; }
         @Override public long expectedTimestamp() { return TIMESTAMP; }
-        @Override public long expectedViewCountAtLeast() { return 190; }
-        @Nullable @Override public String expectedUploadDate() { return "2019-01-02 00:00:00.000"; }
-        @Nullable @Override public String expectedTextualUploadDate() { return "2019-01-02"; }
+        @Override public long expectedViewCountAtLeast() { return 40000; }
+        @Nullable @Override public String expectedUploadDate() { return "2023-01-13 21:53:57.000"; }
+        @Nullable @Override public String expectedTextualUploadDate() { return "2023-01-13T13:53:57-08:00"; }
         @Override public long expectedLikeCountAtLeast() { return -1; }
         @Override public long expectedDislikeCountAtLeast() { return -1; }
+        @Override public String expectedLicence() { return YOUTUBE_LICENCE; }
+        @Override public String expectedCategory() { return "Education"; }
         // @formatter:on
     }
 
@@ -277,8 +283,8 @@ public class YoutubeStreamExtractorDefaultTest {
         }
         @Override public long expectedLength() { return 953; }
         @Override public long expectedViewCountAtLeast() { return 270000; }
-        @Nullable @Override public String expectedUploadDate() { return "2021-03-17 00:00:00.000"; }
-        @Nullable @Override public String expectedTextualUploadDate() { return "2021-03-17"; }
+        @Nullable @Override public String expectedUploadDate() { return "2021-03-17 19:56:59.000"; }
+        @Nullable @Override public String expectedTextualUploadDate() { return "2021-03-17T12:56:59-07:00"; }
         @Override public long expectedLikeCountAtLeast() { return 2300; }
         @Override public long expectedDislikeCountAtLeast() { return -1; }
         @Override public boolean expectedHasSubtitles() { return false; }
@@ -336,11 +342,10 @@ public class YoutubeStreamExtractorDefaultTest {
         @Override public boolean expectedUploaderVerified() { return true; }
         @Override public long expectedLength() { return 1010; }
         @Override public long expectedViewCountAtLeast() { return 815500; }
-        @Nullable @Override public String expectedUploadDate() { return "2020-11-18 00:00:00.000"; }
-        @Nullable @Override public String expectedTextualUploadDate() { return "2020-11-18"; }
+        @Nullable @Override public String expectedUploadDate() { return "2020-11-19 05:30:01.000"; }
+        @Nullable @Override public String expectedTextualUploadDate() { return "2020-11-18T21:30:01-08:00"; }
         @Override public long expectedLikeCountAtLeast() { return 48500; }
         @Override public long expectedDislikeCountAtLeast() { return -1; }
-        @Override public boolean expectedHasSubtitles() { return true; }
         @Override public int expectedStreamSegmentsCount() { return 7; }
         @Override public String expectedLicence() { return YOUTUBE_LICENCE; }
         @Override public String expectedCategory() { return "Science & Technology"; }
@@ -375,7 +380,7 @@ public class YoutubeStreamExtractorDefaultTest {
     }
 
     public static class PublicBroadcasterTest extends DefaultStreamExtractorTest {
-        private static final String ID = "q6fgbYWsMgw";
+        private static final String ID = "cJ9to6EmElQ";
         private static final int TIMESTAMP = 0;
         private static final String URL = BASE_URL + ID;
         private static StreamExtractor extractor;
@@ -391,41 +396,39 @@ public class YoutubeStreamExtractorDefaultTest {
         // @formatter:off
         @Override public StreamExtractor extractor() { return extractor; }
         @Override public StreamingService expectedService() { return YouTube; }
-        @Override public String expectedName() { return "Was verbirgt sich am tiefsten Punkt des Ozeans?"; }
+        @Override public String expectedName() { return "Merci pour les 3 millions d'abonnés \uD83C\uDF89| ARTE"; }
         @Override public String expectedId() { return ID; }
         @Override public String expectedUrlContains() { return BASE_URL + ID; }
         @Override public String expectedOriginalUrlContains() { return URL; }
 
         @Override public StreamType expectedStreamType() { return StreamType.VIDEO_STREAM; }
-        @Override public String expectedUploaderName() { return "Dinge Erklärt – Kurzgesagt"; }
-        @Override public String expectedUploaderUrl() { return "https://www.youtube.com/channel/UCwRH985XgMYXQ6NxXDo8npw"; }
-        @Override public long expectedUploaderSubscriberCountAtLeast() { return 1_500_000; }
-        @Override public List<String> expectedDescriptionContains() { return Arrays.asList("Lasst uns abtauchen!", "Angebot von funk", "Dinge"); }
-        @Override public long expectedLength() { return 631; }
+        @Override public String expectedUploaderName() { return "ARTE"; }
+        @Override public String expectedUploaderUrl() { return "https://www.youtube.com/channel/UCwI-JbGNsojunnHbFAc0M4Q"; }
+        @Override public long expectedUploaderSubscriberCountAtLeast() { return 3_000_000; }
+        @Override public List<String> expectedDescriptionContains() { return Arrays.asList("sommets", "fans", "cadeau"); }
+        @Override public long expectedLength() { return 45; }
         @Override public long expectedTimestamp() { return TIMESTAMP; }
-        @Override public long expectedViewCountAtLeast() { return 1_600_000; }
-        @Nullable @Override public String expectedUploadDate() { return "2019-06-12 00:00:00.000"; }
-        @Nullable @Override public String expectedTextualUploadDate() { return "2019-06-12"; }
-        @Override public long expectedLikeCountAtLeast() { return 70000; }
+        @Override public long expectedViewCountAtLeast() { return 20_000; }
+        @Nullable @Override public String expectedUploadDate() { return "2023-07-07 15:30:08.000"; }
+        @Nullable @Override public String expectedTextualUploadDate() { return "2023-07-07T08:30:08-07:00"; }
+        @Override public long expectedLikeCountAtLeast() { return 1000; }
         @Override public long expectedDislikeCountAtLeast() { return -1; }
         @Override public List<MetaInfo> expectedMetaInfo() throws MalformedURLException {
             return Collections.singletonList(new MetaInfo(
                     "",
-                    new Description("Funk is a German public broadcast service.", Description.PLAIN_TEXT),
-                    Collections.singletonList(new URL("https://de.wikipedia.org/wiki/Funk_(Medienangebot)?wprov=yicw1")),
-                    Collections.singletonList("Wikipedia (German)")
+                    new Description("Arte is a French/German public broadcast service.",
+                            Description.PLAIN_TEXT),
+                    List.of(new URL(
+                            "https://en.wikipedia.org/wiki/Arte?wprov=yicw1")),
+                    List.of("Wikipedia")
             ));
         }
         @Override public boolean expectedUploaderVerified() { return true; }
         @Override public String expectedLicence() { return YOUTUBE_LICENCE; }
-        @Override public String expectedCategory() { return "Education"; }
+        @Override public String expectedCategory() { return "News & Politics"; }
         @Override public List<String> expectedTags() {
-            return Arrays.asList("Abgrund", "Algen", "Bakterien", "Challengertief", "Dumbooktopus",
-                    "Dunkel", "Dunkelheit", "Fische", "Flohkrebs", "Hadal-Zone", "Kontinentalschelf",
-                    "Licht", "Mariannengraben", "Meer", "Meeresbewohner", "Meeresschnee", "Mesopelagial",
-                    "Ozean", "Photosynthese", "Plankton", "Plastik", "Polypen", "Pottwale",
-                    "Staatsquelle", "Tauchen", "Tauchgang", "Tentakel", "Tiefe", "Tiefsee", "Tintenfische",
-                    "Titanic", "Vampirtintenfisch", "Verschmutzung", "Viperfisch", "Wale");
+            return Arrays.asList("arte", "arte 3 millions", "arte remerciement",
+                    "documentaire arte", "arte documentaire", "fan d'arte", "arte youtube");
         }
         // @formatter:on
     }
@@ -451,8 +454,8 @@ public class YoutubeStreamExtractorDefaultTest {
         @Override public List<String> expectedDescriptionContains() { return Arrays.asList("Makani", "prototype", "rotors"); }
         @Override public long expectedLength() { return 175; }
         @Override public long expectedViewCountAtLeast() { return 88_000; }
-        @Nullable @Override public String expectedUploadDate() { return "2017-05-16 00:00:00.000"; }
-        @Nullable @Override public String expectedTextualUploadDate() { return "2017-05-16"; }
+        @Nullable @Override public String expectedUploadDate() { return "2017-05-16 14:50:53.000"; }
+        @Nullable @Override public String expectedTextualUploadDate() { return "2017-05-16T07:50:53-07:00"; }
         @Override public long expectedLikeCountAtLeast() { return -1; }
         @Override public long expectedDislikeCountAtLeast() { return -1; }
         @Override public StreamExtractor extractor() { return extractor; }
@@ -488,8 +491,8 @@ public class YoutubeStreamExtractorDefaultTest {
 
         @Test
         @Override
-        public void testUploaderAvatarUrl() {
-            assertThrows(ParsingException.class, () -> extractor.getUploaderAvatarUrl());
+        public void testUploaderAvatars() {
+            assertThrows(ParsingException.class, () -> extractor.getUploaderAvatars());
         }
     }
 
@@ -546,24 +549,58 @@ public class YoutubeStreamExtractorDefaultTest {
 
         @Test
         void testCheckAudioStreams() throws Exception {
-            assertTrue(extractor.getAudioStreams().size() > 0);
+            final List<AudioStream> audioStreams = extractor.getAudioStreams();
+            assertFalse(audioStreams.isEmpty());
 
-            for (final AudioStream audioStream : extractor.getAudioStreams()) {
-                assertNotNull(audioStream.getAudioTrackName());
+            for (final AudioStream stream : audioStreams) {
+                assertNotNull(stream.getAudioTrackName());
             }
 
-            assertTrue(
-                    extractor.getAudioStreams()
-                            .stream()
-                            .anyMatch(audioStream -> audioStream.getAudioTrackName().equals("English"))
-            );
+            assertTrue(audioStreams.stream()
+                    .anyMatch(audioStream ->
+                            "English original".equals(audioStream.getAudioTrackName())));
 
-            assertTrue(
-                    extractor.getAudioStreams()
-                            .stream()
-                            .anyMatch(audioStream -> audioStream.getAudioTrackName().equals("Hindi"))
-            );
+            final Locale hindiLocale = Locale.forLanguageTag("hi");
+            assertTrue(audioStreams.stream()
+                    .anyMatch(audioStream ->
+                            Objects.equals(audioStream.getAudioLocale(), hindiLocale)));
+        }
+    }
+
+    public static class AudioTrackTypes {
+        private static final String ID = "Kn56bMZ9OE8";
+        private static final String URL = BASE_URL + ID;
+        private static StreamExtractor extractor;
+
+        @BeforeAll
+        public static void setUp() throws Exception {
+            YoutubeTestsUtils.ensureStateless();
+            NewPipe.init(DownloaderFactory.getDownloader(RESOURCE_PATH + "audioTrackType"));
+            extractor = YouTube.getStreamExtractor(URL);
+            extractor.fetchPage();
         }
 
+        @Test
+        void testCheckOriginalAudio() throws Exception {
+            assertFalse(extractor.getAudioStreams().isEmpty());
+
+            assertTrue(extractor.getAudioStreams()
+                    .stream()
+                    .anyMatch(s -> s.getAudioTrackType() == AudioTrackType.ORIGINAL));
+        }
+
+        @Test
+        void testCheckDubbedAudio() throws Exception {
+            assertTrue(extractor.getAudioStreams()
+                    .stream()
+                    .anyMatch(s -> s.getAudioTrackType() == AudioTrackType.DUBBED));
+        }
+
+        @Test
+        void testCheckDescriptiveAudio() throws Exception {
+            assertTrue(extractor.getAudioStreams()
+                    .stream()
+                    .anyMatch(s -> s.getAudioTrackType() == AudioTrackType.DESCRIPTIVE));
+        }
     }
 }

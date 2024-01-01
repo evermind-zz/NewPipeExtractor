@@ -1,5 +1,8 @@
 package org.schabi.newpipe.extractor.services.media_ccc.extractors;
 
+import static org.schabi.newpipe.extractor.services.media_ccc.extractors.MediaCCCParsingHelper.getImageListFromLogoImageUrl;
+import static org.schabi.newpipe.extractor.services.media_ccc.extractors.MediaCCCParsingHelper.getThumbnailsFromStreamItem;
+import static org.schabi.newpipe.extractor.services.media_ccc.extractors.MediaCCCParsingHelper.parseDateFrom;
 import static org.schabi.newpipe.extractor.stream.AudioStream.UNKNOWN_BITRATE;
 import static org.schabi.newpipe.extractor.stream.Stream.ID_UNKNOWN;
 
@@ -8,6 +11,7 @@ import com.grack.nanojson.JsonObject;
 import com.grack.nanojson.JsonParser;
 import com.grack.nanojson.JsonParserException;
 
+import org.schabi.newpipe.extractor.Image;
 import org.schabi.newpipe.extractor.MediaFormat;
 import org.schabi.newpipe.extractor.StreamingService;
 import org.schabi.newpipe.extractor.downloader.Downloader;
@@ -24,6 +28,7 @@ import org.schabi.newpipe.extractor.stream.StreamExtractor;
 import org.schabi.newpipe.extractor.stream.StreamType;
 import org.schabi.newpipe.extractor.stream.VideoStream;
 import org.schabi.newpipe.extractor.utils.JsonUtils;
+import org.schabi.newpipe.extractor.utils.LocaleCompat;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -50,13 +55,13 @@ public class MediaCCCStreamExtractor extends StreamExtractor {
     @Nonnull
     @Override
     public DateWrapper getUploadDate() throws ParsingException {
-        return new DateWrapper(MediaCCCParsingHelper.parseDateFrom(getTextualUploadDate()));
+        return new DateWrapper(parseDateFrom(getTextualUploadDate()));
     }
 
     @Nonnull
     @Override
-    public String getThumbnailUrl() {
-        return data.getString("thumb_url");
+    public List<Image> getThumbnails() {
+        return getThumbnailsFromStreamItem(data);
     }
 
     @Nonnull
@@ -90,8 +95,8 @@ public class MediaCCCStreamExtractor extends StreamExtractor {
 
     @Nonnull
     @Override
-    public String getUploaderAvatarUrl() {
-        return conferenceData.getString("logo_url");
+    public List<Image> getUploaderAvatars() {
+        return getImageListFromLogoImageUrl(conferenceData.getString("logo_url"));
     }
 
     @Override
@@ -114,15 +119,24 @@ public class MediaCCCStreamExtractor extends StreamExtractor {
                     mediaFormat = null;
                 }
 
-                // Not checking containsSimilarStream here, since MediaCCC does not provide enough
-                // information to decide whether two streams are similar. Hence that method would
-                // always return false, e.g. even for different language variations.
-                audioStreams.add(new AudioStream.Builder()
+                final AudioStream.Builder builder = new AudioStream.Builder()
                         .setId(recording.getString("filename", ID_UNKNOWN))
                         .setContent(recording.getString("recording_url"), true)
                         .setMediaFormat(mediaFormat)
-                        .setAverageBitrate(UNKNOWN_BITRATE)
-                        .build());
+                        .setAverageBitrate(UNKNOWN_BITRATE);
+
+                final String language = recording.getString("language");
+                // If the language contains a - symbol, this means that the stream has an audio
+                // track with multiple languages, so there is no specific language for this stream
+                // Don't set the audio language in this case
+                if (language != null && !language.contains("-")) {
+                    builder.setAudioLocale(LocaleCompat.forLanguageTag(language));
+                }
+
+                // Not checking containsSimilarStream here, since MediaCCC does not provide enough
+                // information to decide whether two streams are similar. Hence that method would
+                // always return false, e.g. even for different language variations.
+                audioStreams.add(builder.build());
             }
         }
         return audioStreams;

@@ -1,6 +1,7 @@
 package org.schabi.newpipe.extractor.services.bandcamp.extractors;
 
-import static org.schabi.newpipe.extractor.services.bandcamp.extractors.BandcampExtractorHelper.getImageUrl;
+import static org.schabi.newpipe.extractor.services.bandcamp.extractors.BandcampExtractorHelper.getImagesFromImageId;
+import static org.schabi.newpipe.extractor.services.bandcamp.extractors.BandcampExtractorHelper.getImagesFromImageUrl;
 import static org.schabi.newpipe.extractor.services.bandcamp.extractors.BandcampStreamExtractor.getAlbumInfoJson;
 import static org.schabi.newpipe.extractor.utils.JsonUtils.getJsonData;
 import static org.schabi.newpipe.extractor.utils.Utils.HTTPS;
@@ -11,19 +12,25 @@ import com.grack.nanojson.JsonParserException;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
+import org.schabi.newpipe.extractor.Image;
 import org.schabi.newpipe.extractor.Page;
 import org.schabi.newpipe.extractor.StreamingService;
 import org.schabi.newpipe.extractor.downloader.Downloader;
-import org.schabi.newpipe.extractor.exceptions.ContentNotAvailableException;
 import org.schabi.newpipe.extractor.exceptions.ExtractionException;
+import org.schabi.newpipe.extractor.exceptions.PaidContentException;
 import org.schabi.newpipe.extractor.exceptions.ParsingException;
 import org.schabi.newpipe.extractor.linkhandler.ListLinkHandler;
 import org.schabi.newpipe.extractor.playlist.PlaylistExtractor;
 import org.schabi.newpipe.extractor.services.bandcamp.extractors.streaminfoitem.BandcampPlaylistStreamInfoItemExtractor;
+import org.schabi.newpipe.extractor.stream.Description;
 import org.schabi.newpipe.extractor.stream.StreamInfoItem;
 import org.schabi.newpipe.extractor.stream.StreamInfoItemsCollector;
 
 import java.io.IOException;
+import java.util.Objects;
+import java.util.List;
 
 import javax.annotation.Nonnull;
 
@@ -64,17 +71,17 @@ public class BandcampPlaylistExtractor extends PlaylistExtractor {
 
         if (trackInfo.isEmpty()) {
             // Albums without trackInfo need to be purchased before they can be played
-            throw new ContentNotAvailableException("Album needs to be purchased");
+            throw new PaidContentException("Album needs to be purchased");
         }
     }
 
     @Nonnull
     @Override
-    public String getThumbnailUrl() throws ParsingException {
+    public List<Image> getThumbnails() throws ParsingException {
         if (albumJson.isNull("art_id")) {
-            return "";
+            return List.of();
         } else {
-            return getImageUrl(albumJson.getLong("art_id"), true);
+            return getImagesFromImageId(albumJson.getLong("art_id"), true);
         }
     }
 
@@ -90,12 +97,14 @@ public class BandcampPlaylistExtractor extends PlaylistExtractor {
         return albumJson.getString("artist");
     }
 
+    @Nonnull
     @Override
-    public String getUploaderAvatarUrl() {
-        return document.getElementsByClass("band-photo").stream()
+    public List<Image> getUploaderAvatars() {
+        return getImagesFromImageUrl(document.getElementsByClass("band-photo")
+                .stream()
                 .map(element -> element.attr("src"))
                 .findFirst()
-                .orElse("");
+                .orElse(""));
     }
 
     @Override
@@ -106,6 +115,32 @@ public class BandcampPlaylistExtractor extends PlaylistExtractor {
     @Override
     public long getStreamCount() {
         return trackInfo.size();
+    }
+
+    @Nonnull
+    @Override
+    public Description getDescription() throws ParsingException {
+        final Element tInfo = document.getElementById("trackInfo");
+        if (tInfo == null) {
+            throw new ParsingException("Could not find trackInfo in document");
+        }
+        final Elements about = tInfo.getElementsByClass("tralbum-about");
+        final Elements credits = tInfo.getElementsByClass("tralbum-credits");
+        final Element license = document.getElementById("license");
+        if (about.isEmpty() && credits.isEmpty() && license == null) {
+            return Description.EMPTY_DESCRIPTION;
+        }
+        final StringBuilder sb = new StringBuilder();
+        if (!about.isEmpty()) {
+            sb.append(Objects.requireNonNull(about.first()).html());
+        }
+        if (!credits.isEmpty()) {
+            sb.append(Objects.requireNonNull(credits.first()).html());
+        }
+        if (license != null) {
+            sb.append(license.html());
+        }
+        return new Description(sb.toString(), Description.HTML);
     }
 
     @Nonnull
@@ -124,7 +159,7 @@ public class BandcampPlaylistExtractor extends PlaylistExtractor {
             } else {
                 // Pretend every track has the same cover art as the album
                 collector.commit(new BandcampPlaylistStreamInfoItemExtractor(
-                        track, getUploaderUrl(), getThumbnailUrl()));
+                        track, getUploaderUrl(), getThumbnails()));
             }
         }
 
